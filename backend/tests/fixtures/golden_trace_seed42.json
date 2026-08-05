@@ -1,0 +1,364 @@
+{
+  "tick_logs": [
+    {
+      "month": 1,
+      "kpis": {
+        "cash": 323333.33,
+        "mrr": 10098.0,
+        "arr": 121176.0,
+        "burn": 46568.666666666664,
+        "runway": 6.943152047871959,
+        "customers": 102.0,
+        "revenue": 10098.0,
+        "costs": 56666.666666666664,
+        "new_customers": 102.0,
+        "churned_customers": 0.0
+      }
+    },
+    {
+      "month": 2,
+      "kpis": {
+        "cash": 275540.67,
+        "mrr": 19206.0,
+        "arr": 230472.0,
+        "burn": 38684.666666666664,
+        "runway": 7.122735967739155,
+        "customers": 194.0,
+        "revenue": 19206.0,
+        "costs": 57890.666666666664,
+        "new_customers": 97.0,
+        "churned_customers": 5.0
+      }
+    },
+    {
+      "month": 3,
+      "kpis": {
+        "cash": 225752.0,
+        "mrr": 27324.0,
+        "arr": 327888.0,
+        "burn": 41670.66666666667,
+        "runway": 5.417527917319935,
+        "customers": 276.0,
+        "revenue": 27324.0,
+        "costs": 68994.66666666667,
+        "new_customers": 92.0,
+        "churned_customers": 10.0
+      }
+    },
+    {
+      "month": 4,
+      "kpis": {
+        "cash": 183097.33,
+        "mrr": 34749.0,
+        "arr": 416988.0,
+        "burn": 35229.66666666667,
+        "runway": 5.197248531067563,
+        "customers": 351.0,
+        "revenue": 34749.0,
+        "costs": 69978.66666666667,
+        "new_customers": 89.0,
+        "churned_customers": 14.0
+      }
+    },
+    {
+      "month": 5,
+      "kpis": {
+        "cash": 146967.67,
+        "mrr": 41283.0,
+        "arr": 495396.0,
+        "burn": 29595.66666666667,
+        "runway": 4.96585085654431,
+        "customers": 417.0,
+        "revenue": 41283.0,
+        "costs": 70878.66666666667,
+        "new_customers": 84.0,
+        "churned_customers": 18.0
+      }
+    },
+    {
+      "month": 6,
+      "kpis": {
+        "cash": 116580.0,
+        "mrr": 47025.0,
+        "arr": 564300.0,
+        "burn": 24645.66666666667,
+        "runway": 4.730243315254874,
+        "customers": 475.0,
+        "revenue": 47025.0,
+        "costs": 71670.66666666667,
+        "new_customers": 79.0,
+        "churned_customers": 21.0
+      }
+    },
+    {
+      "month": 7,
+      "kpis": {
+        "cash": 91238.33,
+        "mrr": 52173.0,
+        "arr": 626076.0,
+        "burn": 20193.66666666667,
+        "runway": 4.518165761542391,
+        "customers": 527.0,
+        "revenue": 52173.0,
+        "costs": 72366.66666666667,
+        "new_customers": 76.0,
+        "churned_customers": 24.0
+      }
+    },
+    {
+      "month": 8,
+      "kpis": {
+        "cash": 70420.67,
+        "mrr": 56826.0,
+        "arr": 681912.0,
+        "burn": 16164.666666666672,
+        "runway": 4.356456468841496,
+        "customers": 574.0,
+        "revenue": 56826.0,
+        "costs": 72990.66666666667,
+        "new_customers": 73.0,
+        "churned_customers": 26.0
+      }
+    },
+    {
+      "month": 9,
+      "kpis": {
+        "cash": 53692.0,
+        "mrr": 60984.0,
+        "arr": 731808.0,
+        "burn": 12570.666666666672,
+        "runway": 4.27121340687313,
+        "customers": 616.0,
+        "revenue": 60984.0,
+        "costs": 73554.66666666667,
+        "new_customers": 71.0,
+        "churned_customers": 29.0
+      }
+    },
+    {
+      "month": 10,
+      "kpis": {
+        "cash": 40617.33,
+        "mrr": 64746.0,
+        "arr": 776952.0,
+        "burn": 9312.666666666672,
+        "runway": 4.361514782733177,
+        "customers": 654.0,
+        "revenue": 64746.0,
+        "costs": 74058.66666666667,
+        "new_customers": 69.0,
+        "churned_customers": 31.0
+      }
+    },
+    {
+      "month": 11,
+      "kpis": {
+        "cash": 30848.67,
+        "mrr": 67914.0,
+        "arr": 814968.0,
+        "burn": 6600.6666666666715,
+        "runway": 4.6735683264316465,
+        "customers": 686.0,
+        "revenue": 67914.0,
+        "costs": 74514.66666666667,
+        "new_customers": 65.0,
+        "churned_customers": 33.0
+      }
+    },
+    {
+      "month": 12,
+      "kpis": {
+        "cash": 23864.0,
+        "mrr": 70884.0,
+        "arr": 850608.0,
+        "burn": 4014.6666666666715,
+        "runway": 5.944204583194905,
+        "customers": 716.0,
+        "revenue": 70884.0,
+        "costs": 74898.66666666667,
+        "new_customers": 64.0,
+        "churned_customers": 34.0
+      }
+    },
+    {
+      "month": 13,
+      "kpis": {
+        "cash": 19489.33,
+        "mrr": 73458.0,
+        "arr": 881496.0,
+        "burn": 1800.6666666666715,
+        "runway": 10.823398741206839,
+        "customers": 742.0,
+        "revenue": 73458.0,
+        "costs": 75258.66666666667,
+        "new_customers": 62.0,
+        "churned_customers": 36.0
+      }
+    },
+    {
+      "month": 14,
+      "kpis": {
+        "cash": 17376.67,
+        "mrr": 75735.0,
+        "arr": 908820.0,
+        "burn": -164.33333333332848,
+        "runway": Infinity,
+        "customers": 765.0,
+        "revenue": 75735.0,
+        "costs": 75570.66666666667,
+        "new_customers": 60.0,
+        "churned_customers": 37.0
+      }
+    },
+    {
+      "month": 15,
+      "kpis": {
+        "cash": 17265.0,
+        "mrr": 77715.0,
+        "arr": 932580.0,
+        "burn": -1868.3333333333285,
+        "runway": Infinity,
+        "customers": 785.0,
+        "revenue": 77715.0,
+        "costs": 75846.66666666667,
+        "new_customers": 58.0,
+        "churned_customers": 38.0
+      }
+    },
+    {
+      "month": 16,
+      "kpis": {
+        "cash": 18893.33,
+        "mrr": 79497.0,
+        "arr": 953964.0,
+        "burn": -3410.3333333333285,
+        "runway": Infinity,
+        "customers": 803.0,
+        "revenue": 79497.0,
+        "costs": 76086.66666666667,
+        "new_customers": 57.0,
+        "churned_customers": 39.0
+      }
+    },
+    {
+      "month": 17,
+      "kpis": {
+        "cash": 22087.67,
+        "mrr": 81081.0,
+        "arr": 972972.0,
+        "burn": -4778.3333333333285,
+        "runway": Infinity,
+        "customers": 819.0,
+        "revenue": 81081.0,
+        "costs": 76302.66666666667,
+        "new_customers": 56.0,
+        "churned_customers": 40.0
+      }
+    },
+    {
+      "month": 18,
+      "kpis": {
+        "cash": 26674.0,
+        "mrr": 82467.0,
+        "arr": 989604.0,
+        "burn": -5972.3333333333285,
+        "runway": Infinity,
+        "customers": 833.0,
+        "revenue": 82467.0,
+        "costs": 76494.66666666667,
+        "new_customers": 55.0,
+        "churned_customers": 41.0
+      }
+    },
+    {
+      "month": 19,
+      "kpis": {
+        "cash": 32478.33,
+        "mrr": 83754.0,
+        "arr": 1005048.0,
+        "burn": -7091.3333333333285,
+        "runway": Infinity,
+        "customers": 846.0,
+        "revenue": 83754.0,
+        "costs": 76662.66666666667,
+        "new_customers": 55.0,
+        "churned_customers": 42.0
+      }
+    },
+    {
+      "month": 20,
+      "kpis": {
+        "cash": 39413.67,
+        "mrr": 84942.0,
+        "arr": 1019304.0,
+        "burn": -8123.3333333333285,
+        "runway": Infinity,
+        "customers": 858.0,
+        "revenue": 84942.0,
+        "costs": 76818.66666666667,
+        "new_customers": 54.0,
+        "churned_customers": 42.0
+      }
+    },
+    {
+      "month": 21,
+      "kpis": {
+        "cash": 47393.0,
+        "mrr": 85932.0,
+        "arr": 1031184.0,
+        "burn": -8969.333333333328,
+        "runway": Infinity,
+        "customers": 868.0,
+        "revenue": 85932.0,
+        "costs": 76962.66666666667,
+        "new_customers": 53.0,
+        "churned_customers": 43.0
+      }
+    },
+    {
+      "month": 22,
+      "kpis": {
+        "cash": 56242.33,
+        "mrr": 86724.0,
+        "arr": 1040688.0,
+        "burn": -9641.333333333328,
+        "runway": Infinity,
+        "customers": 876.0,
+        "revenue": 86724.0,
+        "costs": 77082.66666666667,
+        "new_customers": 51.0,
+        "churned_customers": 43.0
+      }
+    },
+    {
+      "month": 23,
+      "kpis": {
+        "cash": 65787.67,
+        "mrr": 87417.0,
+        "arr": 1049004.0,
+        "burn": -10238.333333333328,
+        "runway": Infinity,
+        "customers": 883.0,
+        "revenue": 87417.0,
+        "costs": 77178.66666666667,
+        "new_customers": 51.0,
+        "churned_customers": 44.0
+      }
+    },
+    {
+      "month": 24,
+      "kpis": {
+        "cash": 75942.0,
+        "mrr": 88011.0,
+        "arr": 1056132.0,
+        "burn": -10748.333333333328,
+        "runway": Infinity,
+        "customers": 889.0,
+        "revenue": 88011.0,
+        "costs": 77262.66666666667,
+        "new_customers": 50.0,
+        "churned_customers": 44.0
+      }
+    }
+  ]
+}

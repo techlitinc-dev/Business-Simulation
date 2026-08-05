@@ -1,0 +1,184 @@
+{
+  "tick_logs": [
+    {
+      "month": 1,
+      "kpis": {
+        "cash": 323333.33,
+        "mrr": 10098.0,
+        "arr": 121176.0,
+        "burn": 46568.666666666664,
+        "runway": 6.943152047871959,
+        "customers": 102.0,
+        "revenue": 10098.0,
+        "costs": 56666.666666666664,
+        "new_customers": 102.0,
+        "churned_customers": 0.0
+      }
+    },
+    {
+      "month": 2,
+      "kpis": {
+        "cash": 275540.67,
+        "mrr": 19206.0,
+        "arr": 230472.0,
+        "burn": 38684.666666666664,
+        "runway": 7.122735967739155,
+        "customers": 194.0,
+        "revenue": 19206.0,
+        "costs": 57890.666666666664,
+        "new_customers": 97.0,
+        "churned_customers": 5.0
+      }
+    },
+    {
+      "month": 3,
+      "kpis": {
+        "cash": 225752.0,
+        "mrr": 27324.0,
+        "arr": 327888.0,
+        "burn": 41670.66666666667,
+        "runway": 5.417527917319935,
+        "customers": 276.0,
+        "revenue": 27324.0,
+        "costs": 68994.66666666667,
+        "new_customers": 92.0,
+        "churned_customers": 10.0
+      }
+    },
+    {
+      "month": 4,
+      "kpis": {
+        "cash": 183097.33,
+        "mrr": 34749.0,
+        "arr": 416988.0,
+        "burn": 35229.66666666667,
+        "runway": 5.197248531067563,
+        "customers": 351.0,
+        "revenue": 34749.0,
+        "costs": 69978.66666666667,
+        "new_customers": 89.0,
+        "churned_customers": 14.0
+      }
+    },
+    {
+      "month": 5,
+      "kpis": {
+        "cash": 146967.67,
+        "mrr": 41283.0,
+        "arr": 495396.0,
+        "burn": 29595.66666666667,
+        "runway": 4.96585085654431,
+        "customers": 417.0,
+        "revenue": 41283.0,
+        "costs": 70878.66666666667,
+        "new_customers": 84.0,
+        "churned_customers": 18.0
+      }
+    },
+    {
+      "month": 6,
+      "kpis": {
+        "cash": 116580.0,
+        "mrr": 47025.0,
+        "arr": 564300.0,
+        "burn": 24645.66666666667,
+        "runway": 4.730243315254874,
+        "customers": 475.0,
+        "revenue": 47025.0,
+        "costs": 71670.66666666667,
+        "new_customers": 79.0,
+        "churned_customers": 21.0
+      }
+    },
+    {
+      "month": 7,
+      "kpis": {
+        "cash": 91238.33,
+        "mrr": 48510.0,
+        "arr": 582120.0,
+        "burn": 23856.66666666667,
+        "runway": 3.8244376135252143,
+        "customers": 490.0,
+        "revenue": 48510.0,
+        "costs": 72366.66666666667,
+        "new_customers": 46.0,
+        "churned_customers": 31.0
+      }
+    },
+    {
+      "month": 8,
+      "kpis": {
+        "cash": 67201.67,
+        "mrr": 49797.0,
+        "arr": 597564.0,
+        "burn": 22749.66666666667,
+        "runway": 2.953962695424102,
+        "customers": 503.0,
+        "revenue": 49797.0,
+        "costs": 72546.66666666667,
+        "new_customers": 45.0,
+        "churned_customers": 32.0
+      }
+    },
+    {
+      "month": 9,
+      "kpis": {
+        "cash": 44296.0,
+        "mrr": 50985.0,
+        "arr": 611820.0,
+        "burn": 21717.66666666667,
+        "runway": 2.0396297944837465,
+        "customers": 515.0,
+        "revenue": 50985.0,
+        "costs": 72702.66666666667,
+        "new_customers": 45.0,
+        "churned_customers": 33.0
+      }
+    },
+    {
+      "month": 10,
+      "kpis": {
+        "cash": 22434.33,
+        "mrr": 55341.0,
+        "arr": 664092.0,
+        "burn": 17505.66666666667,
+        "runway": 1.2815469276615101,
+        "customers": 559.0,
+        "revenue": 55341.0,
+        "costs": 72846.66666666667,
+        "new_customers": 74.0,
+        "churned_customers": 30.0
+      }
+    },
+    {
+      "month": 11,
+      "kpis": {
+        "cash": 4400.67,
+        "mrr": 59202.0,
+        "arr": 710424.0,
+        "burn": 14172.666666666672,
+        "runway": 0.3105037866315332,
+        "customers": 598.0,
+        "revenue": 59202.0,
+        "costs": 73374.66666666667,
+        "new_customers": 71.0,
+        "churned_customers": 32.0
+      }
+    },
+    {
+      "month": 12,
+      "kpis": {
+        "cash": -10240.0,
+        "mrr": 62667.0,
+        "arr": 752004.0,
+        "burn": 11175.666666666672,
+        "runway": -0.916276433918945,
+        "customers": 633.0,
+        "revenue": 62667.0,
+        "costs": 73842.66666666667,
+        "new_customers": 69.0,
+        "churned_customers": 34.0
+      }
+    }
+  ]
+}
