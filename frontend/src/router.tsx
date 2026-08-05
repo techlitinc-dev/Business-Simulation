@@ -14,6 +14,8 @@ import BlueprintEditPage from '@/features/blueprint/BlueprintEditPage'
 import BlueprintListPage from '@/features/blueprint/BlueprintListPage'
 import BlueprintCanvasPage from '@/features/blueprint/CanvasView'
 import BuilderWizard from '@/features/blueprint/BuilderWizard'
+import SimulationListPage from '@/features/simulation/SimulationListPage'
+import RunnerPage from '@/features/simulation/RunnerPage'
 
 export const router = createBrowserRouter([
   {
@@ -65,7 +67,11 @@ export const router = createBrowserRouter([
           },
           {
             path: 'simulations',
-            element: <ComingSoonPage title="Simulations" />,
+            element: <SimulationListPage />,
+          },
+          {
+            path: 'simulations/:runId',
+            element: <RunnerPage />,
           },
           {
             path: 'reports',

@@ -7,9 +7,11 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, Header, HTTPException, Path
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.exceptions import DomainError
 from app.core.security import decode_token
 from app.db.session import get_db
@@ -26,6 +28,22 @@ ROLE_RANK: dict[Role, int] = {
 }
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+#: Shared async Redis client for progress/control keys + pub/sub (T28).
+_redis: Redis | None = None
+
+
+def get_redis() -> Redis:
+    """Return the module-level async Redis client (created lazily).
+
+    Best-effort by design: callers wrap usage in try/except so dev and tests
+    run without Redis; tests override this dependency with fakeredis.
+    """
+    global _redis
+    if _redis is None:
+        settings = get_settings()
+        _redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    return _redis
 
 
 async def get_current_user(
