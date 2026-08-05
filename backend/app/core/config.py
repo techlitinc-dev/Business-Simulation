@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Frontend (used for invite / verification links)
     frontend_url: str = "http://localhost:5173"
 
+    # Reports
+    report_storage_dir: str = "./var/reports"
+
     # LLM (AI Cortex) — empty api key means the deterministic mock provider is used
     llm_base_url: str = "https://api.deepseek.com/v1"
     llm_api_key: str | None = ""

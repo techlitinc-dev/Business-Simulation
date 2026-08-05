@@ -16,6 +16,9 @@ import BlueprintCanvasPage from '@/features/blueprint/CanvasView'
 import BuilderWizard from '@/features/blueprint/BuilderWizard'
 import SimulationListPage from '@/features/simulation/SimulationListPage'
 import RunnerPage from '@/features/simulation/RunnerPage'
+import ReportPage from '@/features/reports/ReportPage'
+import SharedReportPage from '@/features/reports/SharedReportPage'
+import CompareRoute from '@/features/reports/CompareRoute'
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +32,10 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <RegisterPage />,
+  },
+  {
+    path: '/reports/shared/:token',
+    element: <SharedReportPage />,
   },
   {
     element: <ProtectedRoute />,
@@ -74,8 +81,16 @@ export const router = createBrowserRouter([
             element: <RunnerPage />,
           },
           {
+            path: 'simulations/:runId/report',
+            element: <ReportPage />,
+          },
+          {
             path: 'reports',
             element: <ComingSoonPage title="Reports" />,
+          },
+          {
+            path: 'reports/compare',
+            element: <CompareRoute />,
           },
           {
             path: 'settings',

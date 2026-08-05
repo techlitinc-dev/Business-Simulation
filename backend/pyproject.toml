@@ -23,6 +23,10 @@ exclude = ["alembic/versions"]
 module = ["celery.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["weasyprint.*", "markdown"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

@@ -128,13 +128,56 @@ def _mock_options(user: str) -> str:
     return json.dumps({"options": options})
 
 
+def _mock_post_mortem(user: str) -> str:
+    """Deterministic, schema-valid PostMortemOutput derived from the prompt."""
+    seed = _hash_seed(user)
+    tweak_keys = [
+        "churn", "cac", "price", "fixed_monthly", "starting_capital",
+        "client_concentration",
+    ]
+    picks = [tweak_keys[(seed + i) % len(tweak_keys)] for i in range(3)]
+    recommendations = [
+        {
+            "tweak_key": picks[0],
+            "recommendation": f"Optimize {picks[0]} to extend the runway.",
+            "implementation_cost": "Low",
+            "trade_off": "Marginal near-term growth impact.",
+        },
+        {
+            "tweak_key": picks[1],
+            "recommendation": f"Improve {picks[1]} for a healthier unit economy.",
+            "implementation_cost": "Medium",
+            "trade_off": "Requires focused execution.",
+        },
+        {
+            "tweak_key": picks[2],
+            "recommendation": f"Review {picks[2]} strategy to reduce concentration risk.",
+            "implementation_cost": "High",
+            "trade_off": "Slower time to market.",
+        },
+    ]
+    return json.dumps(
+        {
+            "optimizations": recommendations,
+            "counter_factual_insight": (
+                "Engine re-runs show the largest survival gains come from "
+                "addressing the top kill vector first."
+            ),
+            "blueprint_v2_suggestions": [
+                "Raise prices on the core plan.",
+                "Add a second revenue stream to reduce concentration.",
+            ],
+        }
+    )
+
+
 class MockProvider:
     """Deterministic provider for dev/test. Identical prompts -> identical output.
 
     ``register(substring, response)`` pins exact canned output for any user
     prompt containing ``substring`` (first match wins). Unregistered prompts
-    that ask for a hurdle or strategic options get deterministic valid output;
-    anything else falls back to ``{}``.
+    that ask for a hurdle, strategic options, or a post-mortem get deterministic
+    valid output; anything else falls back to ``{}``.
     """
 
     def __init__(self, model: str = "mock-model") -> None:
@@ -152,6 +195,8 @@ class MockProvider:
             return _mock_hurdle(user)
         if "Advise on this hurdle" in user:
             return _mock_options(user)
+        if "post-mortem" in user.lower() or "post mortem" in user.lower():
+            return _mock_post_mortem(user)
         return "{}"
 
     async def complete(

@@ -92,6 +92,11 @@ export default function RunnerPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {status === 'completed' && (
+            <Button variant="outline" asChild>
+              <Link to={`/app/simulations/${runId}/report`}>View report</Link>
+            </Button>
+          )}
           {status === 'awaiting_decision' && (
             <Button variant="outline" onClick={() => control.mutate('pause')} disabled={isTerminal}>
               <Pause className="h-4 w-4" /> Pause

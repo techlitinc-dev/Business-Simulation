@@ -3,9 +3,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 
 from app.api.deps import CurrentWorkspace, DbSession, get_redis
 from app.core.exceptions import DomainError
+from app.models.simulation import SimulationRun
 from app.schemas.simulation import (
     ControlRequest,
     DecisionAppliedResponse,
@@ -27,9 +29,22 @@ router = APIRouter(prefix="/simulations", tags=["simulations"])
 def _run_response(
     run: object, progress: dict[str, object] | None = None
 ) -> SimulationRunResponse:
-    return SimulationRunResponse.model_validate(run).model_copy(
-        update={"progress": progress}
+    return SimulationRunResponse.model_validate(run).model_copy(update={"progress": progress})
+
+
+@router.get("")
+async def list_simulations(
+    db: DbSession,
+    workspace: CurrentWorkspace,
+) -> list[SimulationRunResponse]:
+    """List the workspace's runs (newest first)."""
+    rows = await db.scalars(
+        select(SimulationRun)
+        .where(SimulationRun.workspace_id == workspace.id)
+        .order_by(SimulationRun.created_at.desc())
+        .limit(100)
     )
+    return [_run_response(r) for r in rows]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

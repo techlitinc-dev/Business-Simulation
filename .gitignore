@@ -33,3 +33,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Report storage (generated PDFs)
+backend/var/
