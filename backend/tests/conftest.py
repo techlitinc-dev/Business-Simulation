@@ -1,0 +1,48 @@
+"""Shared pytest fixtures for the backend test suite."""
+
+import os
+
+# Tests must run without Postgres — force a sqlite-backed engine before any
+# app module imports app.db.session.
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+# Cheap argon2 hashing keeps the test suite fast.
+os.environ.setdefault("FORGE_CHEAP_HASH", "1")
+
+import pytest
+import pytest_asyncio
+from app.core.config import get_settings
+from app.db.base import Base
+from app.db.session import async_engine
+from app.main import create_app
+from app.workers.celery_app import celery_app
+from httpx import ASGITransport, AsyncClient
+
+# Run Celery tasks inline (no broker needed) in tests.
+celery_app.conf.task_always_eager = True
+celery_app.conf.task_eager_propagates = False
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _db_tables():
+    """Create all tables on the shared sqlite engine before each test."""
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.fixture
+def app():
+    """A fresh FastAPI app instance with a known (non-cached) settings override."""
+    settings = get_settings()
+    settings.debug = True
+    settings.llm_api_key = ""  # deterministic mock provider mode
+    return create_app()
+
+
+@pytest.fixture
+async def client(app):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
