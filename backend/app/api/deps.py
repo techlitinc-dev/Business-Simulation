@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, Path
+from fastapi import Depends, Header, HTTPException, Path
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,7 @@ from app.core.exceptions import DomainError
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
-from app.models.workspace import Membership, Role
+from app.models.workspace import Membership, Role, Workspace
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -67,6 +67,33 @@ async def _get_membership(db: AsyncSession, user_id: str, workspace_id: str) -> 
         )
     )
     return result
+
+
+async def get_current_workspace(
+    db: DbSession,
+    user: CurrentUser,
+    x_workspace_id: str | None = Header(default=None),
+) -> Workspace:
+    """Resolve the caller's active workspace from the ``X-Workspace-Id`` header.
+
+    Used by resource routers (blueprints, simulations, ...) that are scoped to
+    the workspace the client has selected. Outsiders get 403, mirroring the
+    multi-tenant guard used on ``/workspaces/{id}/*`` routes.
+    """
+    if not x_workspace_id:
+        raise DomainError(status_code=403, detail="X-Workspace-Id header is required")
+
+    membership = await _get_membership(db, str(user.id), x_workspace_id)
+    if membership is None:
+        raise DomainError(status_code=403, detail="Not a member of this workspace")
+
+    workspace = await db.get(Workspace, uuid.UUID(x_workspace_id))
+    if workspace is None:
+        raise DomainError(status_code=403, detail="Not a member of this workspace")
+    return workspace
+
+
+CurrentWorkspace = Annotated[Workspace, Depends(get_current_workspace)]
 
 
 def require_workspace_role(min_role: str = "member") -> Callable[..., object]:

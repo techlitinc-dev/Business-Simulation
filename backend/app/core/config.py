@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.deepseek.com/v1"
     llm_api_key: str | None = ""
     llm_model: str = "deepseek-chat"
+    # "auto" (mock when no key, openai-compatible otherwise) or "mock" to force
+    llm_provider: str = "auto"
+    llm_timeout_seconds: float = 60.0
+    llm_max_retries: int = 3
+    # Per-1k-token pricing; 0.0 means cost tracking is disabled (cost_usd -> 0.0)
+    llm_cost_per_1k_input_tokens: float = 0.0
+    llm_cost_per_1k_output_tokens: float = 0.0
 
     # Stripe billing
     stripe_secret_key: str | None = None

@@ -45,21 +45,21 @@ Verification conventions (defined in T01–T05):
 
 ## Phase 3 — Blueprints → `tasks/phases/phase-3.md`
 
-- [ ] **T16** Blueprint Pydantic schemas (Format A) + structural validation service — **M** — deps: T04, T11
-- [ ] **T17** Blueprint CRUD + versioning API — **M** — deps: T16, T08
-- [ ] **T18** Blueprint Builder UI: guided multi-step wizard + live validation panel — **L** — deps: T17, T07
-- [ ] **T19** Blueprint canvas view (React Flow visual model map) — **M** — deps: T17
+- [x] **T16** Blueprint Pydantic schemas (Format A) + structural validation service — **M** — deps: T04, T11
+- [x] **T17** Blueprint CRUD + versioning API — **M** — deps: T16, T08
+- [x] **T18** Blueprint Builder UI: guided multi-step wizard + live validation panel — **L** — deps: T17, T07
+- [x] **T19** Blueprint canvas view (React Flow visual model map) — **M** — deps: T17
 
 ## Phase 4 — AI Cortex → `tasks/phases/phase-4.md`
 
-- [ ] **T20** LLM provider abstraction: OpenAI-compatible client, env config, retry/timeout, token-cost tracking, mock provider — **M** — deps: T02
-- [ ] **T21** Structured output bridge: Pydantic schema validation + repair-retry loop — **M** — deps: T20
-- [ ] **T22** Forge agent + `POST /blueprints/{id}/review` (vulnerability analysis, Format A) — **M** — deps: T21, T17
-- [ ] **T23** Hurdle generator: vital-signs snapshot → Format B hurdle JSON + chronicle memory — **M** — deps: T21, T15
-- [ ] **T24** Strategist: 2–4 branching options + 12-month engine projection per option — **M** — deps: T23, T15
+- [x] **T20** LLM provider abstraction: OpenAI-compatible client, env config, retry/timeout, token-cost tracking, mock provider — **M** — deps: T02
+- [x] **T21** Structured output bridge: Pydantic schema validation + repair-retry loop — **M** — deps: T20
+- [x] **T22** Forge agent + `POST /blueprints/{id}/review` (vulnerability analysis, Format A) — **M** — deps: T21, T17
+- [x] **T23** Hurdle generator: vital-signs snapshot → Format B hurdle JSON + chronicle memory — **M** — deps: T21, T15
+- [x] **T24** Strategist: 2–4 branching options + 12-month engine projection per option — **M** — deps: T23, T15
 
 ### Checkpoint C
-- [ ] With `LLM_*` env vars set, review + hurdle endpoints return schema-valid JSON; with no key, mock provider keeps dev flow working
+- [x] With `LLM_*` env vars set, review + hurdle endpoints return schema-valid JSON; with no key, mock provider keeps dev flow working
 
 ## Phase 5 — Simulation Runs → `tasks/phases/phase-5.md`
 
@@ -114,3 +114,7 @@ Verification conventions (defined in T01–T05):
 ## Progress Notes
 
 _(Append dated entries here as tasks complete — keeps state across sessions/compaction.)_
+
+- 2026-08-05: Phase 3 (T16–T19) complete. Backend: Format A Pydantic schemas (`app/schemas/blueprint.py`), structural validation service (`app/services/blueprint_service.py`, 5 rules + report DTOs), Blueprint/BlueprintVersion models with `bp_`/`bpv_` prefixed ids, Alembic migration `a1b2c3d4e5f6`, full CRUD/versioning/validate REST API under `/api/v1/blueprints` scoped by `X-Workspace-Id` header (new `get_current_workspace` dep). Frontend: Zustand draft store, 5-step BuilderWizard with debounced live validation panel, blueprint list/detail/edit pages, React Flow canvas view (`@xyflow/react@^12`) with pure `blueprintToFlow` layout. Verification: 152 backend tests pass (incl. 2 new unit + 1 new integration suites), ruff + mypy clean, alembic up/down/up clean, frontend build + lint pass (0 errors). Frontend unit tests skipped — no vitest runner scaffolded in T03 (build+lint are the gate per T18/T19).
+
+- 2026-08-05: Phase 4 (T20–T24) complete. Backend AI Cortex: LLM provider abstraction (`app/agents/llm/base.py` — `LLMResponse`, `LLMProvider` Protocol, deterministic `MockProvider` with `sha256`-seeded output + substring registry; `openai_compat.py` — OpenAI-compatible client with exponential-backoff retries on timeout/rate-limit/connection/5xx, token-cost tracking; `factory.py` — auto/mock selection). Structured-output bridge (`app/agents/bridge.py` — `generate_structured` with JSON extraction, `clamp_deltas` on `MECHANICAL_DELTA_BOUNDS`, repair-retry loop max 2, raises `StructuredOutputError` in `app/core/exceptions.py`). Forge agent (`forge.py` + `prompts/forge_system.md`) with `POST /api/v1/blueprints/{id}/review` endpoint (200 + persists `identified_vulnerabilities` to `BlueprintVersion.vulnerabilities`, 404 cross-workspace, 502 on invalid LLM output). Hurdle generator (`hurdle_generator.py` + `prompts/hurdle_generation.md` — `build_vital_signs` snapshot, Format B `HurdleEvent` schema in `app/schemas/hurdle.py`, clamp=True). Chronicle narrative memory (`chronicle.py` — `ActorState`/`ChronicleEntry`/`Chronicle` with actor continuity + lossless `to_dict`/`from_dict`). Strategist (`strategist.py` + `prompts/strategic_options.md` — 2–4 options via bridge, pure-deterministic 12-month `project_option` reusing engine `tick`/`apply_event`, `advise` aligns options+projections). New `LLM_*` settings in `app/core/config.py` + `.env.example`. Verification: 202 backend tests pass (incl. 50 phase-4 unit/integration tests), ruff + mypy clean (fixed pre-existing mypy errors in `blueprint_service.py` + model column typing), no `openai` imports outside `openai_compat.py`, mock provider path verified end-to-end with no API key (factory → `MockProvider`, strategist REPL check with distinct projections, chronicle actor continuity across hurdle generations).

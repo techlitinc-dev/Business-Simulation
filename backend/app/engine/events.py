@@ -16,6 +16,7 @@ _ALLOWED_IMMEDIATE_KEYS = {
     "cash_burn_delta_monthly",
     "cash_delta_one_time",
     "price_delta_percent",
+    "mrr_delta_percent",
     "competitor_pressure_delta",
     "sentiment_delta",
 }
@@ -75,7 +76,7 @@ def validate_mechanical_impact(raw: dict[str, object]) -> dict[str, float]:
 def _apply_percent_to_streams(
     streams: list[RevenueStream], key: str, delta: float
 ) -> list[RevenueStream]:
-    """Multiplicatively adjust each stream by delta percent for churn / CAC."""
+    """Multiplicatively adjust each stream by delta percent for churn / CAC / price."""
     updated = []
     for stream in streams:
         if key == "churn_monthly":
@@ -85,7 +86,10 @@ def _apply_percent_to_streams(
         elif key == "cac":
             new_cac = stream.cac * (1.0 + delta / 100.0)
             updated.append(replace(stream, cac=max(1.0, new_cac)))
-        else:  # pragma: no cover - only churn/cac keys reach here
+        elif key == "price":
+            new_price = stream.price_point * (1.0 + delta / 100.0)
+            updated.append(replace(stream, price_point=max(0.01, new_price)))
+        else:  # pragma: no cover - only churn/cac/price keys reach here
             updated.append(stream)
     return updated
 
@@ -109,6 +113,11 @@ def apply_event(
         streams = _apply_percent_to_streams(streams, "churn_monthly", impact["churn_delta_percent"])
     if impact.get("cac_delta_percent", 0.0) != 0.0:
         streams = _apply_percent_to_streams(streams, "cac", impact["cac_delta_percent"])
+    if impact.get("price_delta_percent", 0.0) != 0.0:
+        streams = _apply_percent_to_streams(streams, "price", impact["price_delta_percent"])
+    if impact.get("mrr_delta_percent", 0.0) != 0.0:
+        # Scale each stream's price by the MRR delta (revenue moves with price).
+        streams = _apply_percent_to_streams(streams, "price", impact["mrr_delta_percent"])
 
     if impact.get("competitor_pressure_delta", 0.0) != 0.0 or impact.get(
         "sentiment_delta", 0.0

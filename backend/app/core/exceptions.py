@@ -17,6 +17,15 @@ class DomainError(Exception):
         super().__init__(detail)
 
 
+class StructuredOutputError(Exception):
+    """Raised when an LLM fails to produce schema-valid JSON after repairs."""
+
+    def __init__(self, raw_output: str, validation_error: Exception) -> None:
+        self.raw_output = raw_output
+        self.validation_error = validation_error
+        super().__init__(f"LLM returned invalid structured output: {validation_error}")
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:

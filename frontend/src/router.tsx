@@ -9,6 +9,11 @@ import RegisterPage from '@/features/auth/RegisterPage'
 import ComingSoonPage from '@/features/marketing/ComingSoonPage'
 import LandingPage from '@/features/marketing/LandingPage'
 import MembersPage from '@/features/settings/MembersPage'
+import BlueprintDetailPage from '@/features/blueprint/BlueprintDetailPage'
+import BlueprintEditPage from '@/features/blueprint/BlueprintEditPage'
+import BlueprintListPage from '@/features/blueprint/BlueprintListPage'
+import BlueprintCanvasPage from '@/features/blueprint/CanvasView'
+import BuilderWizard from '@/features/blueprint/BuilderWizard'
 
 export const router = createBrowserRouter([
   {
@@ -40,7 +45,23 @@ export const router = createBrowserRouter([
           },
           {
             path: 'blueprints',
-            element: <ComingSoonPage title="Blueprints" />,
+            element: <BlueprintListPage />,
+          },
+          {
+            path: 'blueprints/new',
+            element: <BuilderWizard />,
+          },
+          {
+            path: 'blueprints/:blueprintId',
+            element: <BlueprintDetailPage />,
+          },
+          {
+            path: 'blueprints/:blueprintId/edit',
+            element: <BlueprintEditPage />,
+          },
+          {
+            path: 'blueprints/:blueprintId/canvas',
+            element: <BlueprintCanvasPage />,
           },
           {
             path: 'simulations',

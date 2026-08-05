@@ -236,11 +236,11 @@ Detailed cards live in `tasks/phases/`. Master checklist: `tasks/todo.md`.
 - [ ] T19: Blueprint canvas view (React Flow visual map of the model)
 
 ### Phase 4 — AI Cortex
-- [ ] T20: LLM provider abstraction (OpenAI-compatible, env-configured, retry/timeout/token-cost tracking)
-- [ ] T21: Structured output bridge — Pydantic schema validation + repair-retry loop
-- [ ] T22: Forge agent — system prompt, blueprint review endpoint (Format A vulnerabilities)
-- [ ] T23: Hurdle generator — vital-signs snapshot → Format B hurdle JSON + chronicle memory
-- [ ] T24: Strategist — branching options + 12-month outcome projection per option
+- [x] T20: LLM provider abstraction (OpenAI-compatible, env-configured, retry/timeout/token-cost tracking)
+- [x] T21: Structured output bridge — Pydantic schema validation + repair-retry loop
+- [x] T22: Forge agent — system prompt, blueprint review endpoint (Format A vulnerabilities)
+- [x] T23: Hurdle generator — vital-signs snapshot → Format B hurdle JSON + chronicle memory
+- [x] T24: Strategist — branching options + 12-month outcome projection per option
 
 ### Checkpoint C (after T24): with `LLM_*` env set, `POST /blueprints/{id}/review` and hurdle generation return schema-valid JSON; with no key, deterministic mock fallback works (dev mode).
 

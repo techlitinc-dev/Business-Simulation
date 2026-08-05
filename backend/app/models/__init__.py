@@ -5,5 +5,6 @@ Alembic's env.py (which imports this package) picks up its tables via
 Base.metadata.
 """
 
+from app.models.blueprint import Blueprint, BlueprintVersion  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.workspace import Invite, Membership, Role, Workspace  # noqa: F401
