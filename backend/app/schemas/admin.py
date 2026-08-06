@@ -55,3 +55,24 @@ class AdminWorkspaceListResponse(BaseModel):
     items: list[AdminWorkspaceItem]
     total: int
     page: int
+
+
+class AuditLogItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    created_at: datetime
+    request_id: str | None
+    user_id: str | None
+    workspace_id: str | None
+    method: str
+    path: str
+    status_code: int
+    ip_address: str | None
+    user_agent: str | None
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogItem]
+    total: int
+    page: int

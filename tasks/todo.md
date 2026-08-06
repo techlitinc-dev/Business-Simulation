@@ -100,14 +100,14 @@ Verification conventions (defined in T01–T05):
 
 ## Phase 9 — Production Hardening → `tasks/phases/phase-9.md`
 
-- [ ] **T47** Test coverage push: engine ≥90%, API integration ≥80% — **L** — deps: all core phases
-- [ ] **T48** Observability: request-id logging, Sentry, Prometheus metrics, readiness probes — **M** — deps: T02
-- [ ] **T49** Security hardening: global rate limits, CORS, security headers, audit log — **M** — deps: T45
-- [ ] **T50** Seed data + demo blueprints/scenarios + docs (README, docs/api.md, docs/deployment.md, docs/llm-providers.md) — **M** — deps: T42
-- [ ] **T51** Production deployment: prod Dockerfiles, docker-compose.prod.yml, DB backups, deploy runbook — **M** — deps: T48, T49
+- [x] **T47** Test coverage push: engine ≥90%, API integration ≥80% — **L** — deps: all core phases
+- [x] **T48** Observability: request-id logging, Sentry, Prometheus metrics, readiness probes — **M** — deps: T02
+- [x] **T49** Security hardening: global rate limits, CORS, security headers, audit log — **M** — deps: T45
+- [x] **T50** Seed data + demo blueprints/scenarios + docs (README, docs/api.md, docs/deployment.md, docs/llm-providers.md) — **M** — deps: T42
+- [x] **T51** Production deployment: prod Dockerfiles, docker-compose.prod.yml, DB backups, deploy runbook — **M** — deps: T48, T49
 
 ### Checkpoint E
-- [ ] Staging deploy passes smoke tests; a new dev can run the full stack from README in <15 min; CI enforces lint+tests+coverage gates
+- [x] Staging deploy passes smoke tests; a new dev can run the full stack from README in <15 min; CI enforces lint+tests+coverage gates
 
 ---
 

@@ -56,6 +56,22 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
 
+    # Environment — "production" flips HSTS on and CORS to prod origins
+    environment: str = "development"
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+    # Security / rate limiting (T49)
+    rate_limit_default: str = "100/minute"
+    rate_limit_auth: str = "10/minute"
+    rate_limit_register: str = "20/minute"
+    # "testing" disables the global limiter in tests (except dedicated tests).
+    testing: bool = False
+
+    # Observability (T48) — empty SENTRY_DSN disables Sentry; Prometheus /metrics
+    # is always exposed.
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+
 
 @lru_cache
 def get_settings() -> Settings:

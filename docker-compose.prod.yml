@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: forge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-forge}
+      POSTGRES_DB: forge
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forge -d forge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://forge:${POSTGRES_PASSWORD:-forge}@postgres:5432/forge
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://forge:${POSTGRES_PASSWORD:-forge}@postgres:5432/forge
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: production
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backup:
+    image: postgres:16-alpine
+    volumes:
+      - ./backups:/backups
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-forge}
+    entrypoint: >
+      sh -c 'while true; do
+        PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h postgres -U forge forge | gzip > /backups/forge-$$(date +%Y%m%d-%H%M).sql.gz;
+        find /backups -name "*.sql.gz" -mtime +14 -delete;
+        sleep 86400;
+      done'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

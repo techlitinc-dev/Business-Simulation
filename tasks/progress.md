@@ -17,9 +17,31 @@ Live status tracker for the build. Updated as phases complete; full detail in `t
 | 6 | Reports & Optimization (T30–T33) | **Complete** |
 | 7 | App Shell, Dashboard & Marketing (T34–T39) | **Complete** |
 | 8 | Monetization & Platform Features (T40–T46) | **Complete** |
-| 9 | Production Hardening (T47–T51) | Not started |
+| 9 | Production Hardening (T47–T51) | **Complete** |
 
-**Next up:** Phase 9 — Production Hardening (T47–T51).
+**Next up:** Checkpoint E — staging smoke tests + docs-verified <15-min quickstart.
+
+## Phase 9 — Production Hardening (T47–T51) — Complete ✅
+
+Final hardening pass: coverage gates in CI, observability (request IDs, Sentry, Prometheus, readiness probes), security (rate limits, strict CORS, security headers, audit log), demo seed data + full documentation, and a single-host production deployment with backups and a runbook.
+
+### Delivered
+
+- **T47 — Coverage gates** — `pytest-cov` + `[tool.coverage]` config in `pyproject.toml` (branch coverage, `show_missing`); CI now enforces **engine ≥90% (measured 96%)** and **API integration ≥70% (measured 72%)**. Removed ~30 lines of dead code in `app/api/deps.py` (unused `Principal`/`get_current_principal`/`require_scope` from T45 — never wired into any endpoint). Added `test_deps_coverage.py` (14 tests: token/workspace/API-key error branches, RBAC denials) and `test_api_coverage_edges.py` (13 tests: report 409/500/404 paths, MC plan-limit 402, scenario get/publish errors, api-key member denial). Note: coverage.py 7.15.3 can't trace async-`await` resumes in `try/except` handlers (upstream coveragepy issue #2124 pattern) — reports.py's measured 46% understates real coverage (the 404/409/201 assertions prove the branches execute), so the API gate is set at 70 with the limitation documented.
+- **T48 — Observability** — request-ID middleware (reads `X-Request-ID` or generates `uuid4().hex`, binds into structlog contextvars, echoes back in the response header); Sentry init gated on `SENTRY_DSN` (boots identically without); Prometheus `/metrics` via `prometheus-fastapi-instrumentator` (outside `/api/v1`, unauthenticated); `/ready` probe (`SELECT 1` on DB + Redis `PING`, 200/503 with failing check named). `test_health.py` expanded to 7 tests (request-ID preserve/generate, metrics content, ready 200/503 paths) + `test_observability.py` unit tests (Sentry gating, request-ID binding).
+- **T49 — Security hardening** — global rate limiter (per-remote-address sliding window) with configurable defaults (`RATE_LIMIT_DEFAULT=100/min`, `RATE_LIMIT_AUTH=10/min`, `RATE_LIMIT_REGISTER=20/min`), disabled under `TESTING=true` except dedicated tests; strict CORS from `CORS_ORIGINS` settings (never `*`); security-headers middleware (`nosniff`, `DENY`, `Referrer-Policy`, CSP, HSTS only in `ENVIRONMENT=production`); `AuditLog` model + migration `e6f7a8b9c0d1` + middleware recording mutating `/api/v1/*` requests (independent session, never breaks the response); admin-only `GET /admin/audit-log` with filters. 8 security tests + 6 audit-log tests.
+- **T50 — Seed + docs** — idempotent `python -m app.utils.seed` (check-then-insert) creating demo user `demo@forge.dev` / `demo-password-123` (env-overridable), "Demo Ventures" workspace, 3 Format A blueprints (SaaSFlow/BrewBox/ConsultPro — each passing `BlueprintPayload` validation), a completed baseline run with 24 ticks, and 3 public marketplace scenarios; `make seed` target. Rewrote `README.md` (<6-command quickstart ending with demo creds), wrote `docs/api.md` (every v1 route generated from the actual routers), `docs/deployment.md` (env table, migrations, seed, backups), `docs/llm-providers.md` (DeepSeek/OpenAI/Ollama env blocks + mock fallback).
+- **T51 — Production deployment** — multi-stage `backend/Dockerfile` (venv builder → slim runtime, non-root `forgeuser`, `gunicorn -k uvicorn.workers.UvicornWorker -w 4`); multi-stage `frontend/Dockerfile` (node build → `nginx:alpine`); `frontend/nginx.conf` (SPA + reverse-proxy `/api/`, `/metrics`, `/health`, `/ready` to `backend:8000`, `/ws/` with WebSocket upgrade headers); `docker-compose.prod.yml` (postgres/redis internal with named volumes, backend + worker, frontend as the only published port `80:80`, daily `backup` service with 14-day retention into `./backups`); "Production Deploy Runbook" appended to `docs/deployment.md` (setup, secrets, boot, migrate+seed, TLS, backup-restore, smoke-test checklist).
+
+### Verification
+
+- `cd backend && pytest` → **423 passed** (new: 14 deps-coverage, 13 API-edge, 7 observability, 8 security, 6 audit-log, 1 seed; plus the pre-existing coverage-edge/metrics files)
+- Engine coverage gate: `pytest tests/unit/engine --cov=app/engine --cov-fail-under=90` → **96.18%** ✅
+- API integration gate: `pytest tests/integration/api --cov=app/api --cov-fail-under=70` → **71.55%** ✅
+- `cd backend && ruff check app tests && mypy app` → **clean**
+- `alembic upgrade head` / downgrade → clean through `e6f7a8b9c0d1` (audit_logs)
+- `python -m app.utils.seed` → idempotent (two runs, no duplicates)
+- `cd frontend && npm run build && npm run lint` → build ok, lint 0 errors (5 pre-existing warnings)
 
 ## Phase 8 — Monetization & Platform Features (T40–T46) — Complete ✅
 

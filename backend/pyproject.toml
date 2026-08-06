@@ -27,6 +27,24 @@ ignore_missing_imports = true
 module = ["weasyprint.*", "markdown"]
 ignore_missing_imports = true
 
+[tool.coverage.run]
+branch = true
+concurrency = ["thread"]
+source = ["app"]
+omit = ["app/workers/*", "app/utils/pdf.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.coverage.json]
+show_contexts = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

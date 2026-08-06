@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -173,3 +174,35 @@ async def admin_workspaces(
         for ws, member_count, runs_count in rows.all()
     ]
     return AdminWorkspaceListResponse(items=items, total=total, page=page)
+
+
+async def admin_audit_logs(
+    db: AsyncSession,
+    *,
+    page: int = 1,
+    user_id: str | None = None,
+    path: str | None = None,
+    limit: int = 50,
+) -> tuple[list[Any], int]:
+    """Query the audit log (T49) — admin only.
+
+    Returns ``(items, total)`` where items are ``AuditLog`` ORM rows.
+    """
+    from app.models.audit_log import AuditLog
+
+    query = select(AuditLog)
+    count_query = select(func.count()).select_from(AuditLog)
+    if user_id:
+        query = query.where(AuditLog.user_id == user_id)
+        count_query = count_query.where(AuditLog.user_id == user_id)
+    if path:
+        query = query.where(AuditLog.path.like(f"%{path}%"))
+        count_query = count_query.where(AuditLog.path.like(f"%{path}%"))
+
+    total = int(await db.scalar(count_query) or 0)
+    rows = await db.scalars(
+        query.order_by(AuditLog.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    return list(rows.all()), total

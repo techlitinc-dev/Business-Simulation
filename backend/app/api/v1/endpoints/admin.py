@@ -7,6 +7,8 @@ from app.schemas.admin import (
     AdminStatsResponse,
     AdminUserListResponse,
     AdminWorkspaceListResponse,
+    AuditLogItem,
+    AuditLogListResponse,
 )
 from app.services import admin_service
 
@@ -38,3 +40,34 @@ async def workspaces(
     page: int = Query(default=1, ge=1),
 ) -> AdminWorkspaceListResponse:
     return await admin_service.admin_workspaces(db, page=page)
+
+
+@router.get("/audit-log", response_model=AuditLogListResponse)
+async def audit_log(
+    db: DbSession,
+    _admin: AdminUser,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    user_id: str | None = Query(default=None),
+    path: str | None = Query(default=None),
+) -> AuditLogListResponse:
+    """Retrieve audit-log rows (T49) — admin only."""
+    rows, total = await admin_service.admin_audit_logs(
+        db, page=page, user_id=user_id, path=path, limit=limit
+    )
+    items = [
+        AuditLogItem(
+            id=row.id,
+            created_at=row.created_at,
+            request_id=row.request_id,
+            user_id=str(row.user_id) if row.user_id else None,
+            workspace_id=str(row.workspace_id) if row.workspace_id else None,
+            method=row.method,
+            path=row.path,
+            status_code=row.status_code,
+            ip_address=row.ip_address,
+            user_agent=row.user_agent,
+        )
+        for row in rows
+    ]
+    return AuditLogListResponse(items=items, total=total, page=page)

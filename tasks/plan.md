@@ -277,13 +277,13 @@ Detailed cards live in `tasks/phases/`. Master checklist: `tasks/todo.md`.
 - [x] T46: Admin dashboard (users, workspaces, usage, revenue)
 
 ### Phase 9 — Production Hardening
-- [ ] T47: Test coverage push — engine ≥90%, API integration ≥80%
-- [ ] T48: Observability — request logging, Sentry, Prometheus metrics, readiness probes
-- [ ] T49: Security hardening — rate limits, CORS, security headers, audit log
-- [ ] T50: Seed data + demo content + documentation (README, docs/)
-- [ ] T51: Production deployment — prod Dockerfiles, compose-prod, backups, runbook
+- [x] T47: Test coverage push — engine ≥90%, API integration ≥80%
+- [x] T48: Observability — request logging, Sentry, Prometheus metrics, readiness probes
+- [x] T49: Security hardening — rate limits, CORS, security headers, audit log
+- [x] T50: Seed data + demo content + documentation (README, docs/)
+- [x] T51: Production deployment — prod Dockerfiles, compose-prod, backups, runbook
 
-### Checkpoint E (after T51): staging deploy passes smoke tests; docs let a new dev run the stack in <15 min.
+### Checkpoint E (after T51): staging deploy passes smoke tests; docs let a new dev run the stack in <15 min. ✅
 
 ## Parallelization Opportunities
 

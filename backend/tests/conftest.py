@@ -38,6 +38,7 @@ def app():
     settings = get_settings()
     settings.debug = True
     settings.llm_api_key = ""  # deterministic mock provider mode
+    settings.testing = True  # disable global rate limiter (T49); audit tests opt back in
     return create_app()
 
 

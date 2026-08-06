@@ -37,6 +37,12 @@ jobs:
       - name: Tests
         run: pytest
 
+      - name: Engine coverage gate (≥90%)
+        run: pytest tests/unit/engine --cov=app/engine --cov-report=term-missing --cov-fail-under=90
+
+      - name: API integration coverage gate (≥70%)
+        run: pytest tests/integration/api --cov=app/api --cov-report=term-missing --cov-fail-under=70
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

@@ -1,4 +1,4 @@
-.PHONY: up down logs test-backend lint-backend build-frontend lint-frontend migrate
+.PHONY: up down logs test-backend lint-backend build-frontend lint-frontend migrate seed
 
 # Bring up the full dev stack (db, redis, backend, worker, frontend)
 up:
@@ -29,3 +29,7 @@ lint-frontend:
 # Database migrations
 migrate:
 	docker compose exec backend alembic upgrade head
+
+# Seed demo data (idempotent — safe to run repeatedly)
+seed:
+	docker compose exec backend python -m app.utils.seed
