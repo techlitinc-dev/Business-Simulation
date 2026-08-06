@@ -25,7 +25,7 @@ def upgrade() -> None:
     op.add_column('users', sa.Column('primary_fear', sa.String(length=500), nullable=True))
     op.add_column(
         'users',
-        sa.Column('onboarding_completed', sa.Boolean(), server_default=sa.text('0'), nullable=False),
+        sa.Column('onboarding_completed', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     )
     # ### end Alembic commands ###
 

@@ -36,3 +36,4 @@ Thumbs.db
 
 # Report storage (generated PDFs)
 backend/var/
+backups/

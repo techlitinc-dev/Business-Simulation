@@ -79,9 +79,25 @@ def create_app() -> FastAPI:
     app.middleware("http")(audit_log_middleware)
 
     # T48: Prometheus metrics — /metrics, grouped by handler/method/status.
+    # Newer Starlette routes (_IncludedRouter) lack a `.path` attr, which
+    # crashes instrumentator's default route-name resolver. Patch the routing
+    # helper to fall back to the raw path on AttributeError.
     from prometheus_fastapi_instrumentator import Instrumentator
+    from prometheus_fastapi_instrumentator import routing as _instrumentator_routing
 
-    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    _original_get_route_name = _instrumentator_routing.get_route_name
+
+    def _safe_get_route_name(request: Request) -> str | None:
+        try:
+            return _original_get_route_name(request)
+        except AttributeError:
+            return request.url.path
+
+    _instrumentator_routing.get_route_name = _safe_get_route_name  # type: ignore[assignment]
+
+    Instrumentator().instrument(app).expose(
+        app, endpoint="/metrics", include_in_schema=False
+    )
 
     register_exception_handlers(app)
     app.include_router(api_router)
