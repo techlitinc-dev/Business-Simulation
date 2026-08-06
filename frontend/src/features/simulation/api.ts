@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiFetch } from '@/lib/api-client'
+import { toastSuccess, toastError } from '@/lib/toast'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import type { RunMode, SimulationRun, TickLog } from './types'
 
@@ -26,7 +27,14 @@ export function useStartSimulation() {
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
+      toastSuccess('Simulation started', 'Your run is in the War Room')
       void queryClient.invalidateQueries({ queryKey: ['simulations'] })
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Failed to start simulation',
+        'Simulation failed to start',
+      )
     },
   })
 }

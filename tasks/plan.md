@@ -260,12 +260,12 @@ Detailed cards live in `tasks/phases/`. Master checklist: `tasks/todo.md`.
 ### Checkpoint D (after T33): full loop works end-to-end — build blueprint → baseline → stress test with decisions → Monte Carlo → report → comparison.
 
 ### Phase 7 — App Shell, Dashboard & Marketing
-- [ ] T34: Design system polish — dark theme tokens, motion, skeletons, empty states
-- [ ] T35: Main dashboard — KPI cards, resilience gauge, charts, recent activity
-- [ ] T36: Onboarding wizard (industry / stage / primary fear)
-- [ ] T37: Notifications center + toast system
-- [ ] T38: Settings pages (profile, workspace, members, security)
-- [ ] T39: Marketing landing page + pricing page
+- [x] T34: Design system polish — dark theme tokens, motion, skeletons, empty states
+- [x] T35: Main dashboard — KPI cards, resilience gauge, charts, recent activity
+- [x] T36: Onboarding wizard (industry / stage / primary fear)
+- [x] T37: Notifications center + toast system
+- [x] T38: Settings pages (profile, workspace, members, security)
+- [x] T39: Marketing landing page + pricing page
 
 ### Phase 8 — Monetization & Platform Features
 - [ ] T40: Stripe billing — plans, checkout, portal, webhooks

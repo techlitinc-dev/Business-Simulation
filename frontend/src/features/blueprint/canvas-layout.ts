@@ -72,7 +72,7 @@ export function blueprintToFlow(payload: BlueprintPayload): {
       target: 'business',
       animated: true,
       label: `$${m12Revenue.toLocaleString()} M12`,
-      labelStyle: { fill: '#94a3b8', fontSize: 11 },
+      labelStyle: { fill: 'var(--muted-foreground)', fontSize: 11 },
     })
   })
 
@@ -128,7 +128,7 @@ export function blueprintToFlow(payload: BlueprintPayload): {
       source: `vuln-${i}`,
       target: 'business',
       animated: false,
-      style: vuln.severity === 'high' ? { stroke: '#ef4444', strokeDasharray: '5 5' } : undefined,
+      style: vuln.severity === 'high' ? { stroke: 'var(--destructive)', strokeDasharray: '5 5' } : undefined,
     })
   })
 

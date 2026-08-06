@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { toastError, toastSuccess } from '@/lib/toast'
 import { useExportPdf, useReport, useShareReport } from '@/features/reports/hooks'
 import type { ReportOut } from '@/features/reports/hooks'
 
@@ -175,7 +176,14 @@ export default function ReportPage() {
   const handleExport = () => {
     exportPdf.mutate(undefined, {
       onSuccess: (data) => {
+        toastSuccess('Report exported', 'PDF generated')
         window.open(data.pdf_url, '_blank')
+      },
+      onError: (err: unknown) => {
+        toastError(
+          err instanceof Error ? err.message : 'Export failed',
+          'Report export failed',
+        )
       },
     })
   }

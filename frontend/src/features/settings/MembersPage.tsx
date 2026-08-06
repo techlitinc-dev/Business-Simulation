@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy, UserPlus } from 'lucide-react'
+import { Check, Copy, UserPlus, Users } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -21,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -94,7 +96,47 @@ export default function MembersPage() {
   }
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading members…</p>
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-40" />
+            <Skeleton className="h-4 w-52" />
+          </div>
+          <Skeleton className="h-9 w-36" />
+        </div>
+        <div className="rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[0, 1, 2].map((i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-48" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -196,62 +238,75 @@ export default function MembersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {members.map((m) => {
-              const isSelf = m.user_id === user?.id
-              return (
-                <TableRow key={m.user_id}>
-                  <TableCell className="font-medium">{m.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{m.email}</TableCell>
-                  <TableCell>
-                    <Badge className={roleBadgeClass(m.role)}>{m.role}</Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(m.joined_at).toLocaleDateString()}
-                  </TableCell>
-                  {canManage && (
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {m.role !== 'owner' && (
-                          <Select
-                            value={m.role}
-                            onValueChange={(v) => handleRoleChange(m.user_id, v)}
-                            disabled={m.role === 'owner'}
-                          >
-                            <SelectTrigger className="h-8 w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="member">Member</SelectItem>
-                              {canManageRoles && (
-                                <SelectItem value="admin">Admin</SelectItem>
-                              )}
-                              {canManageRoles && (
-                                <SelectItem value="owner">Owner</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        {m.role !== 'owner' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive"
-                            onClick={() => removeMember.mutate(m.user_id)}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                        {isSelf && m.role === 'owner' && (
-                          <span className="text-xs text-muted-foreground">
-                            You are the owner
-                          </span>
-                        )}
-                      </div>
+            {members.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="p-0">
+                  <EmptyState
+                    icon={Users}
+                    title="No members yet"
+                    description="Invite teammates to collaborate on this workspace."
+                    className="border-0 bg-transparent"
+                  />
+                </TableCell>
+              </TableRow>
+            ) : (
+              members.map((m) => {
+                const isSelf = m.user_id === user?.id
+                return (
+                  <TableRow key={m.user_id}>
+                    <TableCell className="font-medium">{m.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{m.email}</TableCell>
+                    <TableCell>
+                      <Badge className={roleBadgeClass(m.role)}>{m.role}</Badge>
                     </TableCell>
-                  )}
-                </TableRow>
-              )
-            })}
+                    <TableCell className="text-muted-foreground">
+                      {new Date(m.joined_at).toLocaleDateString()}
+                    </TableCell>
+                    {canManage && (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {m.role !== 'owner' && (
+                            <Select
+                              value={m.role}
+                              onValueChange={(v) => handleRoleChange(m.user_id, v)}
+                              disabled={m.role === 'owner'}
+                            >
+                              <SelectTrigger className="h-8 w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="member">Member</SelectItem>
+                                {canManageRoles && (
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                )}
+                                {canManageRoles && (
+                                  <SelectItem value="owner">Owner</SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          {m.role !== 'owner' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() => removeMember.mutate(m.user_id)}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                          {isSelf && m.role === 'owner' && (
+                            <span className="text-xs text-muted-foreground">
+                              You are the owner
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })
+            )}
           </TableBody>
         </Table>
       </div>

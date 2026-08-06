@@ -1,7 +1,7 @@
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -15,18 +15,23 @@ interface CashCurveProps {
   ticks: TickLog[]
 }
 
-/** Live cash curve — cash_balance (primary) vs mrr (dashed) over months. */
+/** Cash curve — cash_balance over months using the chart-1 token. */
 export default function CashCurve({ ticks }: CashCurveProps) {
   const data = ticks.map((t) => ({
     month: t.month,
     cash_balance: t.kpis.cash_balance ?? 0,
-    mrr: t.kpis.mrr ?? 0,
   }))
 
   return (
-    <div className="h-80 w-full">
+    <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+          <defs>
+            <linearGradient id="cashFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
           <XAxis
             dataKey="month"
@@ -44,30 +49,21 @@ export default function CashCurve({ ticks }: CashCurveProps) {
               border: '1px solid var(--border)',
               borderRadius: 8,
             }}
-            formatter={(value, name) => [
+            formatter={(value) => [
               `$${Number(value ?? 0).toLocaleString()}`,
-              name === 'cash_balance' ? 'Cash balance' : 'MRR',
+              'Cash balance',
             ]}
           />
           <ReferenceLine y={0} stroke="var(--destructive)" strokeDasharray="4 4" />
-          <Line
+          <Area
             type="monotone"
             dataKey="cash_balance"
-            stroke="var(--primary)"
+            stroke="var(--chart-1)"
             strokeWidth={2}
+            fill="url(#cashFill)"
             dot={false}
-            isAnimationActive
           />
-          <Line
-            type="monotone"
-            dataKey="mrr"
-            stroke="var(--chart-2, #4ade80)"
-            strokeWidth={1.5}
-            strokeDasharray="4 4"
-            dot={false}
-            isAnimationActive
-          />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   )

@@ -2,7 +2,7 @@
 
 Live status tracker for the build. Updated as phases complete; full detail in `tasks/todo.md` and per-phase cards in `tasks/phases/`.
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-06
 
 ## Summary
 
@@ -15,11 +15,33 @@ Live status tracker for the build. Updated as phases complete; full detail in `t
 | 4 | AI Cortex (T20–T24) | Complete |
 | 5 | Simulation Runs (T25–T29) | Complete |
 | 6 | Reports & Optimization (T30–T33) | **Complete** |
-| 7 | App Shell, Dashboard & Marketing (T34–T39) | Not started |
+| 7 | App Shell, Dashboard & Marketing (T34–T39) | **Complete** |
 | 8 | Monetization & Platform Features (T40–T46) | Not started |
 | 9 | Production Hardening (T47–T51) | Not started |
 
-**Next up:** Phase 7 — App Shell, Dashboard & Marketing (T34–T39).
+**Next up:** Phase 8 — Monetization & Platform Features (T40–T46).
+
+## Phase 7 — App Shell, Dashboard & Marketing (T34–T39) — Complete ✅
+
+Turned the working core product into a flagship SaaS surface: a dark-first "war room" design system, a real data-driven dashboard, a 3-step onboarding wizard, an app-wide notification/toast layer, full settings pages with password change, and a public marketing site.
+
+### Delivered
+
+- **T34 — Design system polish** — Dark-first ember-tinted palette as CSS custom properties (`tailwind.config.ts` + `globals.css`): `forge` accent, `success`/`warning`/`danger` semantics, `chart-1…5` tokens; self-hosted Space Grotesk (display) + Inter (body) via `@fontsource`. `PageTransition` (framer-motion fade + 8px slide-up, 200ms easeOut, respects `prefers-reduced-motion`) wrapping all `/app` routes. New `Skeleton` + `EmptyState` primitives swept across BlueprintList, SimulationList, Members, and a new ReportsList page (replaces the old ComingSoon placeholder). Removed all hardcoded hex colors from feature components (grep-clean).
+- **T35 — Dashboard** (`/app`) — KPI cards (cash, MRR, burn, runway) from the latest completed run's ticks with MoM deltas + inline SVG sparklines; animated `ResilienceGauge` (0–100, <40 Fragile / ≤70 At risk / >70 Resilient); `CashCurve` (AreaChart) + `BurnChart` (ComposedChart) on the chart tokens; recent-runs table with status badges and row-click → run; quick actions (New Blueprint / Run Baseline / Monte Carlo); skeletons while loading and an EmptyState CTA when no runs exist.
+- **T36 — Onboarding wizard** — 3-step wizard (`/onboarding`): industry card-grid (8 options), stage (Idea→Series A+), primary fear textarea with suggestion chips (min 10 chars); persists via `PATCH /users/me` and invalidates the `["me"]` cache. Backend: `industry`/`stage`/`primary_fear`/`onboarding_completed` columns on `User` (migration `f7a8b9c0d1e2`), `UserUpdate`/`UserRead` schemas, PATCH auto-flips `onboarding_completed` when all three fields set. `RequireOnboarding` gate redirects to `/onboarding`; "Skip for now" sets a localStorage flag.
+- **T37 — Notifications + toasts** — `sonner` Toaster mounted in AppShell; `lib/toast.ts` (`toastSuccess/Error/Info`) wired into simulation start, blueprint save, report export mutations; Zustand `notifications` store with `persist` (capped at 50); `NotificationBell` in Topbar with unread badge, popover list (bold+dot for unread, click-to-read, mark-all-read, clear, empty state).
+- **T38 — Settings** (`/app/settings/*`) — `SettingsLayout` sub-nav: Profile (name + onboarding fields, `PATCH /users/me`), Workspace (rename, disabled + note for member role), Members (invite/role/remove with toasts + skeletons), Security (password change via new `POST /users/me/password` → 204/400, `PasswordChange` schema, `change_password` in `auth_service`).
+- **T39 — Marketing** — Public `/` (LandingPage: Hero with ember glow + staggered fade-up, HowItWorks 4 steps, Features cards, marked placeholder SocialProof, FinalCta + footer) and `/pricing` (monthly/yearly toggle, 2 months free, `PLAN_TIERS` in `lib/constants.ts`, highlighted Pro card, CTA → `/register?plan={id}`), all wrapped in `MarketingLayout`; dashboard stays at `/app` with no route conflicts (router test asserts both).
+
+### Verification
+
+- `cd backend && pytest` → **282 passed** (8 new phase-7 tests: onboarding PATCH flow + 4 password-change tests)
+- `cd backend && ruff check app tests && mypy app` → **clean**
+- `alembic upgrade head` / `downgrade -1` → clean through `f7a8b9c0d1e2` (onboarding fields)
+- `cd frontend && npx vitest run` → **36 passed across 11 files** (new: PageTransition, EmptyState, DashboardPage, ResilienceGauge, OnboardingWizard, notifications store, NotificationBell, SecurityPage, LandingPage, PricingPage, router)
+- `cd frontend && npm run lint && npm run build` → lint 0 errors (4 pre-existing react-refresh warnings), build ok
+- Frontend test tooling added (vitest 3 + RTL + jsdom + setup with IntersectionObserver mock); `npm run test` script added
 
 ## Checkpoint D — End-to-end core loop ✅
 

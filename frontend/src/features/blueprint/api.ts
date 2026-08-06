@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiFetch } from '@/lib/api-client'
+import { toastError, toastSuccess } from '@/lib/toast'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import type { BlueprintPayload, ValidationReport } from './types'
 
@@ -75,7 +76,14 @@ export function useCreateBlueprint() {
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
+      toastSuccess('Blueprint saved', 'Your blueprint is ready for the War Room')
       void queryClient.invalidateQueries({ queryKey: ['blueprints'] })
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Failed to save blueprint',
+        'Blueprint not saved',
+      )
     },
   })
 }
@@ -90,6 +98,7 @@ export function useAddVersion(blueprintId: string | undefined) {
         body: JSON.stringify({ payload }),
       }),
     onSuccess: () => {
+      toastSuccess('Blueprint version saved', 'New version created')
       void queryClient.invalidateQueries({ queryKey: ['blueprint', blueprintId] })
       void queryClient.invalidateQueries({ queryKey: ['blueprint', blueprintId, 'validate'] })
       void queryClient.invalidateQueries({ queryKey: ['blueprints'] })

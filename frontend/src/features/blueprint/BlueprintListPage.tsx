@@ -1,15 +1,46 @@
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { FilePlus2, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useBlueprints } from './api'
+
+function BlueprintCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-5 w-3/4" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-3 w-2/3" />
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function BlueprintListPage() {
   const { data: blueprints = [], isLoading, isError } = useBlueprints()
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading blueprints…</p>
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-40" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-9 w-36" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <BlueprintCardSkeleton />
+          <BlueprintCardSkeleton />
+          <BlueprintCardSkeleton />
+        </div>
+      </div>
+    )
   }
 
   if (isError) {
@@ -33,18 +64,15 @@ export default function BlueprintListPage() {
       </div>
 
       {blueprints.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              No blueprints yet. Start one to model your business.
-            </p>
-            <Button className="mt-4" asChild>
-              <Link to="/app/blueprints/new">
-                <Plus className="h-4 w-4" /> Build your first blueprint
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={FilePlus2}
+          title="No blueprints yet"
+          description="Model your business to start stress-testing it in the War Room."
+          ctaLabel="Build your first blueprint"
+          onCtaClick={() => {
+            window.location.href = '/app/blueprints/new'
+          }}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {blueprints.map((bp) => (

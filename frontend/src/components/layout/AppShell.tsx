@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import { Toaster } from 'sonner'
 
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
@@ -13,6 +14,18 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+      <Toaster
+        theme="dark"
+        position="top-right"
+        richColors
+        toastOptions={{
+          style: {
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
+            color: 'hsl(var(--foreground))',
+          },
+        }}
+      />
     </div>
   )
 }

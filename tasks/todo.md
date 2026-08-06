@@ -81,12 +81,12 @@ Verification conventions (defined in T01–T05):
 
 ## Phase 7 — App Shell, Dashboard & Marketing → `tasks/phases/phase-7.md`
 
-- [ ] **T34** Design system polish: dark theme tokens, framer-motion transitions, skeletons, empty states — **M** — deps: T03
-- [ ] **T35** Main dashboard: KPI cards, resilience gauge, charts (Recharts), recent runs — **M** — deps: T25, T34
-- [ ] **T36** Onboarding wizard: industry / stage / primary fear — **S** — deps: T07
-- [ ] **T37** Notifications center + toast system — **S** — deps: T34
-- [ ] **T38** Settings pages: profile, workspace, members, security — **M** — deps: T09
-- [ ] **T39** Marketing landing page + pricing page — **M** — deps: T34
+- [x] **T34** Design system polish: dark theme tokens, framer-motion transitions, skeletons, empty states — **M** — deps: T03
+- [x] **T35** Main dashboard: KPI cards, resilience gauge, charts (Recharts), recent runs — **M** — deps: T25, T34
+- [x] **T36** Onboarding wizard: industry / stage / primary fear — **S** — deps: T07
+- [x] **T37** Notifications center + toast system — **S** — deps: T34
+- [x] **T38** Settings pages: profile, workspace, members, security — **M** — deps: T09
+- [x] **T39** Marketing landing page + pricing page — **M** — deps: T34
 
 ## Phase 8 — Monetization & Platform Features → `tasks/phases/phase-8.md`
 

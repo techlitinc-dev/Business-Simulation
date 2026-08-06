@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiFetch } from '@/lib/api-client'
+import { toastError, toastSuccess } from '@/lib/toast'
+import { useAuthStore, type UserOut } from '@/stores/auth-store'
 import { WorkspaceOut } from '@/stores/workspace-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 
@@ -56,6 +58,27 @@ export function useCreateWorkspace() {
   })
 }
 
+export function useUpdateWorkspace(workspaceId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiFetch<WorkspaceOut>(`/api/v1/workspaces/${workspaceId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => {
+      toastSuccess('Workspace updated')
+      void queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Could not update workspace',
+        'Workspace update failed',
+      )
+    },
+  })
+}
+
 export function useUpdateMemberRole(workspaceId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -64,8 +87,16 @@ export function useUpdateMemberRole(workspaceId: string | undefined) {
         method: 'PATCH',
         body: JSON.stringify({ role }),
       }),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ['members', workspaceId] }),
+    onSuccess: () => {
+      toastSuccess('Role updated')
+      void queryClient.invalidateQueries({ queryKey: ['members', workspaceId] })
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Could not update role',
+        'Role update failed',
+      )
+    },
   })
 }
 
@@ -76,8 +107,16 @@ export function useRemoveMember(workspaceId: string | undefined) {
       apiFetch<void>(`/api/v1/workspaces/${workspaceId}/members/${userId}`, {
         method: 'DELETE',
       }),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ['members', workspaceId] }),
+    onSuccess: () => {
+      toastSuccess('Member removed')
+      void queryClient.invalidateQueries({ queryKey: ['members', workspaceId] })
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Could not remove member',
+        'Member removal failed',
+      )
+    },
   })
 }
 
@@ -88,5 +127,58 @@ export function useCreateInvite(workspaceId: string | undefined) {
         method: 'POST',
         body: JSON.stringify({ email, role }),
       }),
+    onSuccess: () => {
+      toastSuccess('Invite created')
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Could not create invite',
+        'Invite failed',
+      )
+    },
+  })
+}
+
+/** Profile update — PATCH /users/me (T36 onboarding fields + name). */
+export function useUpdateProfile() {
+  const queryClient = useQueryClient()
+  const setUser = useAuthStore((s) => s.setUser)
+  return useMutation({
+    mutationFn: (body: Partial<UserOut>) =>
+      apiFetch<UserOut>('/api/v1/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (user) => {
+      setUser(user)
+      toastSuccess('Profile updated')
+      void queryClient.invalidateQueries({ queryKey: ['me'] })
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Could not update profile',
+        'Profile update failed',
+      )
+    },
+  })
+}
+
+/** Password change — POST /users/me/password (T38). */
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: { current_password: string; new_password: string }) =>
+      apiFetch<void>('/api/v1/users/me/password', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      toastSuccess('Password changed')
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Could not change password',
+        'Password change failed',
+      )
+    },
   })
 }

@@ -95,6 +95,25 @@ def refresh_tokens(db: AsyncSession, refresh_token: str) -> TokenPair:
     )
 
 
+async def change_password(
+    db: AsyncSession,
+    *,
+    user: User,
+    current_password: str,
+    new_password: str,
+) -> None:
+    """Verify the current password and store a new hash (T38).
+
+    Raises 401/DomainError 400 on a mismatch — spec: 400 with
+    "Current password is incorrect".
+    """
+    if not verify_password(current_password, user.pw_hash):
+        raise DomainError(status_code=400, detail="Current password is incorrect")
+
+    user.pw_hash = hash_password(new_password)
+    await db.commit()
+
+
 async def verify_email(db: AsyncSession, token: str) -> None:
     """Verify a user's email from a signed, time-limited token."""
     user_id = load_verification_token(token)
