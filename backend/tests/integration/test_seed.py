@@ -47,7 +47,10 @@ async def test_seed_is_idempotent_and_valid() -> None:
         runs = (await session.scalars(select(SimulationRun))).all()
         assert len(runs) == 1
         assert runs[0].status == "completed"
+        assert runs[0].mode == "monte_carlo"
         assert runs[0].seed == 42
+        # MC result shape drives the resilience report.
+        assert runs[0].result["n_runs"] == 100
         tick_count = int(
             await session.scalar(select(func.count()).select_from(TickLog))
         )

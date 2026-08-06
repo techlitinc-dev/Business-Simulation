@@ -420,11 +420,15 @@ async def _seed_blueprints(
 
 
 async def _seed_baseline_run(db: AsyncSession, version: BlueprintVersion) -> None:
-    """Seed one completed baseline run for SaaSFlow (idempotent by seed)."""
+    """Seed one completed Monte Carlo run for SaaSFlow (idempotent by seed).
+
+    Uses a Monte Carlo run (not baseline) so the resilience report generates
+    and the dashboard's gauge + charts populate with real content.
+    """
     existing = await db.scalar(
         select(SimulationRun).where(
             SimulationRun.blueprint_version_id == version.id,
-            SimulationRun.mode == "baseline",
+            SimulationRun.mode == "monte_carlo",
             SimulationRun.seed == 42,
         )
     )
@@ -435,12 +439,24 @@ async def _seed_baseline_run(db: AsyncSession, version: BlueprintVersion) -> Non
     run = SimulationRun(
         workspace_id=workspace_id,
         blueprint_version_id=version.id,
-        mode="baseline",
+        mode="monte_carlo",
         status="completed",
         seed=42,
         current_month=24,
-        config={"months": 24},
-        result=result,
+        config={"months": 24, "n_runs": 100},
+        result={
+            "n_runs": 100,
+            "survival_rate": 0.72,
+            "median_lifespan_months": 24,
+            "p25_lifespan_months": 18,
+            "p75_lifespan_months": 24,
+            "kill_vectors": {"financial": 18, "market": 10},
+            "runs_summary": [
+                {"seed": i, "survived": i < 72, "lifespan_months": 24 if i < 72 else 16}
+                for i in range(100)
+            ],
+            "resilience_score": result["resilience_score"],
+        },
         started_at=None,
         finished_at=None,
     )
