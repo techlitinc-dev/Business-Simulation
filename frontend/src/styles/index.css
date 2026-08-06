@@ -89,3 +89,34 @@
     font-family: theme('fontFamily.display');
   }
 }
+
+@layer components {
+  /* War-room ambient glow: a faint ember bloom at the top of the canvas. */
+  .app-canvas {
+    background:
+      radial-gradient(1100px 420px at 50% -160px, hsl(var(--forge) / 0.09), transparent 70%),
+      var(--background);
+  }
+
+  /* Panel elevation for the war-room instrument cards. */
+  .panel {
+    position: relative;
+    border: 1px solid hsl(var(--border));
+    background:
+      linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.7)),
+      hsl(var(--card));
+    box-shadow:
+      0 1px 0 0 hsl(var(--foreground) / 0.03) inset,
+      0 8px 24px -12px hsl(0 0% 0% / 0.5);
+    transition: border-color 150ms ease-out, transform 150ms ease-out;
+  }
+  .panel:hover {
+    border-color: hsl(var(--forge) / 0.25);
+  }
+
+  /* Sidebar ambient lane divider. */
+  .lane-divider {
+    background: linear-gradient(90deg, transparent, hsl(var(--forge) / 0.35), transparent);
+    height: 1px;
+  }
+}

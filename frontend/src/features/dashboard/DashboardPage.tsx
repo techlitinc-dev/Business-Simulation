@@ -145,9 +145,13 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
+            Dashboard
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Latest run: {latestCompleted.mode} · seed {latestCompleted.seed}
+            {latestCompleted
+              ? `Latest run: ${latestCompleted.mode.replace('_', ' ')} · seed ${latestCompleted.seed}`
+              : 'Your business simulation overview'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -166,19 +170,20 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => (
+        {kpis.map((kpi, i) => (
           <KpiCard
             key={kpi.label}
             label={kpi.label}
             value={kpi.value}
             deltaPercent={kpi.delta}
             sparkline={kpi.sparkline}
+            index={i}
           />
         ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
-        <Card>
+        <Card className="panel">
           <CardHeader>
             <CardTitle className="text-sm">Resilience score</CardTitle>
           </CardHeader>
@@ -186,7 +191,7 @@ export default function DashboardPage() {
             <ResilienceGauge score={resilienceScore} />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="panel">
           <CardHeader>
             <CardTitle className="text-sm">Cash curve</CardTitle>
           </CardHeader>
@@ -200,7 +205,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="panel">
         <CardHeader>
           <CardTitle className="text-sm">MRR vs burn</CardTitle>
         </CardHeader>

@@ -7,7 +7,7 @@ import Topbar from './Topbar'
 
 export default function AppShell() {
   return (
-    <div className="flex min-h-screen">
+    <div className="app-canvas flex min-h-screen">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
