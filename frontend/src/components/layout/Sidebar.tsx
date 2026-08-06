@@ -102,7 +102,7 @@ export default function Sidebar() {
   )
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-border bg-card/70 backdrop-blur">
+    <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border bg-card/70 backdrop-blur">
       <div className="flex h-14 items-center gap-2.5 border-b border-border px-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 shadow-[0_0_16px_hsl(var(--primary)/0.25)]">
           <Flame className="h-4 w-4 text-primary" />
