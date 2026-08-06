@@ -2,7 +2,7 @@ import { FlaskConical, Ghost, Play } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBlueprints } from '@/features/blueprint/api'
@@ -30,7 +30,9 @@ export default function SimulationListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Simulations</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
+            Simulations
+          </h1>
           <p className="text-sm text-muted-foreground">
             Stress-test your blueprint in the War Room.
           </p>
@@ -47,19 +49,19 @@ export default function SimulationListPage() {
           Start a stress run from a blueprint
         </h2>
         {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <Card key={i} className="h-full">
-                <CardHeader>
-                  <Skeleton className="h-5 w-3/4" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-8 w-full" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card className="panel">
+            <div className="divide-y divide-border">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-4">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-1/3" />
+                    <Skeleton className="h-4 w-1/4" />
+                  </div>
+                  <Skeleton className="h-8 w-36" />
+                </div>
+              ))}
+            </div>
+          </Card>
         ) : blueprints.length === 0 ? (
           <EmptyState
             icon={FlaskConical}
@@ -71,28 +73,30 @@ export default function SimulationListPage() {
             }}
           />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {blueprints.map((bp) => (
-              <Card key={bp.id} className="h-full">
-                <CardHeader>
-                  <CardTitle className="text-base">{bp.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    {bp.industry} · {bp.stage} · v{bp.current_version}
-                  </p>
+          <Card className="panel overflow-hidden">
+            <ul className="divide-y divide-border">
+              {blueprints.map((bp) => (
+                <li key={bp.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-6">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-medium text-foreground">
+                      {bp.name}
+                    </p>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                      {bp.industry} · {bp.stage} · v{bp.current_version}
+                    </p>
+                  </div>
                   <Button
-                    className="mt-4 w-full"
                     size="sm"
                     onClick={() => handleStart(bp.id)}
                     disabled={startSimulation.isPending}
+                    className="shrink-0 sm:self-center"
                   >
                     <Play className="h-4 w-4" /> Run stress test
                   </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
       </div>
     </div>
