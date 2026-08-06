@@ -55,7 +55,12 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Same-origin API: requests go to /api/* and nginx proxies to the
+        # backend. Empty string = relative URLs in the built bundle.
+        VITE_API_URL: ${VITE_API_URL:-}
     ports:
       - "80:80"
     depends_on:

@@ -32,8 +32,11 @@ export function useSimulationSocket(runId: string | undefined) {
       setConnectionStatus('connecting')
 
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+      // Same-origin when API_URL is relative/empty (production nginx proxy);
+      // otherwise use the configured API host.
+      const host = API_URL ? new URL(API_URL).host : window.location.host
       const ws = new WebSocket(
-        `${protocol}://${new URL(API_URL).host}/ws/simulations/${runId}?token=${encodeURIComponent(accessToken)}`,
+        `${protocol}://${host}/ws/simulations/${runId}?token=${encodeURIComponent(accessToken)}`,
       )
       wsRef.current = ws
 
