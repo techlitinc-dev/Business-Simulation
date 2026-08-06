@@ -22,7 +22,8 @@ export default function LoginPage() {
   const location = useLocation()
   const login = useLogin()
 
-  const from = (location.state as { from?: string } | null)?.from ?? '/'
+  // Default to the app (dashboard) when not redirected from a protected route.
+  const from = (location.state as { from?: string } | null)?.from ?? '/app'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
