@@ -7,6 +7,7 @@ export interface UserOut {
   email: string
   name: string
   is_verified: boolean
+  is_admin: boolean
   industry: string | null
   stage: string | null
   primary_fear: string | null

@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentWorkspace, DbSession, get_redis
+from app.api.deps import CurrentWorkspace, DbSession, enforce_plan_limit, get_redis
 from app.core.exceptions import DomainError
 from app.models.simulation import SimulationRun
 from app.schemas.simulation import (
@@ -14,6 +14,7 @@ from app.schemas.simulation import (
     DecisionRequest,
     SimulationRunResponse,
     SimulationStartRequest,
+    SimulationVisibilityUpdate,
     TickLogResponse,
 )
 from app.services import simulation_service
@@ -47,7 +48,11 @@ async def list_simulations(
     return [_run_response(r) for r in rows]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(enforce_plan_limit("runs"))],
+)
 async def start_simulation(
     payload: SimulationStartRequest,
     db: DbSession,
@@ -55,6 +60,22 @@ async def start_simulation(
     redis: Annotated[object, Depends(get_redis)],
 ) -> SimulationRunResponse:
     """Start a run — baseline/stress run synchronously, Monte Carlo enqueues."""
+    # T41: Monte Carlo batches consume the tier's batch limit too.
+    if payload.mode == "monte_carlo":
+        from app.services.metering_service import check_limit, increment
+
+        n_runs = payload.config.n_runs
+        await check_limit(db, workspace.id, "mc_ticks", amount=n_runs)
+        try:
+            run = await simulation_service.start_simulation(
+                db, workspace_id=workspace.id, req=payload, redis=redis
+            )
+        except DomainError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        if run.status != "failed":
+            await increment(db, workspace.id, "mc_ticks", amount=n_runs)
+        return _run_response(run)
+
     try:
         run = await simulation_service.start_simulation(
             db, workspace_id=workspace.id, req=payload, redis=redis
@@ -92,6 +113,27 @@ async def get_ticks(
     except DomainError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return await get_run_ticks(db, run.id)
+
+
+@router.patch("/{run_id}")
+async def update_run_visibility(
+    run_id: str,
+    payload: SimulationVisibilityUpdate,
+    db: DbSession,
+    workspace: CurrentWorkspace,
+) -> SimulationRunResponse:
+    """Toggle public leaderboard visibility (T44). 403 for non-members."""
+    run = await db.scalar(
+        select(SimulationRun).where(SimulationRun.id == run_id)
+    )
+    if run is None:
+        raise HTTPException(status_code=404, detail="Simulation run not found")
+    if str(run.workspace_id) != str(workspace.id):
+        raise HTTPException(status_code=403, detail="Not a member of this workspace")
+    run.is_public = payload.is_public
+    await db.commit()
+    await db.refresh(run)
+    return _run_response(run)
 
 
 @router.post("/{run_id}/decide", status_code=status.HTTP_200_OK)

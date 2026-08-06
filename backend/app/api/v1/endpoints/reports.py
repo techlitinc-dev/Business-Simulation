@@ -1,30 +1,23 @@
-"""Report endpoints (T30/T32/T33)."""
+"""Report endpoints (T30/T32/T33/T44)."""
 
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy import select
 
 from app.api.deps import CurrentWorkspace, DbSession
 from app.core.config import get_settings
 from app.core.exceptions import DomainError
 from app.models.report import Report
+from app.models.simulation import SimulationRun
 from app.schemas.report import (
     ComparisonResponse,
     ReportResponse,
+    SharedReportResponse,
 )
 from app.services import report_service
 
 router = APIRouter(prefix="/reports", tags=["reports"])
-
-_SHARE_SALT = "report-share"
-_SHARE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
-
-
-def _share_serializer() -> URLSafeTimedSerializer:
-    settings = get_settings()
-    return URLSafeTimedSerializer(settings.jwt_secret_key, salt=_SHARE_SALT)
 
 
 @router.get("/simulations/{run_id}/report")
@@ -82,7 +75,7 @@ async def share_report(
     db: DbSession,
     workspace: CurrentWorkspace,
 ) -> dict[str, object]:
-    """Create a signed shareable link (7-day expiry)."""
+    """Create a persistent share token for the report (T44)."""
     try:
         report = await report_service.generate_resilience_audit(
             db, workspace_id=workspace.id, run_id=run_id
@@ -90,35 +83,63 @@ async def share_report(
     except DomainError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
-    token = _share_serializer().dumps(
-        {"run_id": run_id, "report_id": report.id}
-    )
-    expires_at = datetime.now(UTC) + timedelta(seconds=_SHARE_MAX_AGE_SECONDS)
+    from app.models.report import _new_share_token
+
+    if not report.share_token:
+        report.share_token = _new_share_token()
+        await db.commit()
+        await db.refresh(report)
+
     settings = get_settings()
-    share_url = f"{settings.frontend_url}/reports/shared/{token}"
-    return {
-        "share_url": share_url,
-        "token": token,
-        "expires_at": expires_at.isoformat(),
-    }
+    share_url = f"{settings.frontend_url}/shared/reports/{report.share_token}"
+    return {"share_url": share_url, "token": report.share_token}
 
 
-@router.get("/shared/{token}")
-async def shared_report(token: str, db: DbSession) -> ReportResponse:
-    """Public endpoint — no auth. Verifies the signed share token."""
+@router.delete("/simulations/{run_id}/report/share", status_code=204)
+async def revoke_report_share(
+    run_id: str,
+    db: DbSession,
+    workspace: CurrentWorkspace,
+) -> None:
+    """Revoke the report's share token (subsequent public GET → 404)."""
     try:
-        payload = _share_serializer().loads(
-            token, max_age=_SHARE_MAX_AGE_SECONDS
+        report = await report_service.generate_resilience_audit(
+            db, workspace_id=workspace.id, run_id=run_id
         )
-    except SignatureExpired:
-        raise HTTPException(status_code=410, detail="Share link expired") from None
-    except BadSignature:
-        raise HTTPException(status_code=404, detail="Invalid share link") from None
+    except DomainError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    report.share_token = None
+    await db.commit()
+    return None
 
-    report = await db.get(Report, payload.get("report_id", ""))
+
+@router.get("/shared/{token}", response_model=SharedReportResponse)
+async def shared_report(token: str, db: DbSession) -> SharedReportResponse:
+    """Public endpoint — no auth. Looks up the report by its share token."""
+    from app.models.blueprint import Blueprint, BlueprintVersion
+
+    report = await db.scalar(
+        select(Report).where(Report.share_token == token)
+    )
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    return report_service.report_response(report)
+
+    run = await db.get(SimulationRun, report.run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    version = await db.get(BlueprintVersion, run.blueprint_version_id)
+    blueprint_name = ""
+    if version is not None:
+        blueprint = await db.get(Blueprint, version.blueprint_id)
+        blueprint_name = blueprint.name if blueprint is not None else ""
+
+    return SharedReportResponse(
+        blueprint_name=blueprint_name,
+        completed_at=run.finished_at or run.created_at,
+        content_md=report.content_md,
+        content_json=report.content_json,
+    )
 
 
 @router.get("/compare")

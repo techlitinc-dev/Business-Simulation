@@ -13,11 +13,19 @@ import ComingSoonPage from '@/features/marketing/ComingSoonPage'
 import LandingPage from '@/features/marketing/LandingPage'
 import MarketingLayout from '@/features/marketing/MarketingLayout'
 import PricingPage from '@/features/marketing/PricingPage'
+import MarketplacePage from '@/features/marketplace/MarketplacePage'
+import ScenarioDetailPage from '@/features/marketplace/ScenarioDetailPage'
+import LeaderboardPage from '@/features/leaderboard/LeaderboardPage'
 import MembersPage from '@/features/settings/MembersPage'
 import ProfilePage from '@/features/settings/ProfilePage'
 import SecurityPage from '@/features/settings/SecurityPage'
 import SettingsLayout from '@/features/settings/SettingsLayout'
 import WorkspacePage from '@/features/settings/WorkspacePage'
+import ApiKeysPanel from '@/features/settings/ApiKeysPanel'
+import AdminRoute from '@/features/settings/admin/AdminRoute'
+import AdminDashboardPage from '@/features/settings/admin/AdminDashboardPage'
+import AdminUsersPage from '@/features/settings/admin/AdminUsersPage'
+import AdminWorkspacesPage from '@/features/settings/admin/AdminWorkspacesPage'
 import BlueprintDetailPage from '@/features/blueprint/BlueprintDetailPage'
 import BlueprintEditPage from '@/features/blueprint/BlueprintEditPage'
 import BlueprintListPage from '@/features/blueprint/BlueprintListPage'
@@ -25,6 +33,8 @@ import BlueprintCanvasPage from '@/features/blueprint/CanvasView'
 import BuilderWizard from '@/features/blueprint/BuilderWizard'
 import SimulationListPage from '@/features/simulation/SimulationListPage'
 import RunnerPage from '@/features/simulation/RunnerPage'
+import GhostSetupPage from '@/features/ghost/GhostSetupPage'
+import GhostSpectatorPage from '@/features/ghost/GhostSpectatorPage'
 import ReportPage from '@/features/reports/ReportPage'
 import ReportsListPage from '@/features/reports/ReportsListPage'
 import SharedReportPage from '@/features/reports/SharedReportPage'
@@ -37,6 +47,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LandingPage /> },
       { path: 'pricing', element: <PricingPage /> },
+      { path: 'marketplace', element: <MarketplacePage /> },
+      { path: 'marketplace/:scenarioId', element: <ScenarioDetailPage /> },
+      { path: 'leaderboard', element: <LeaderboardPage /> },
     ],
   },
   {
@@ -48,7 +61,7 @@ export const router = createBrowserRouter([
     element: <RegisterPage />,
   },
   {
-    path: '/reports/shared/:token',
+    path: '/shared/reports/:token',
     element: <SharedReportPage />,
   },
   {
@@ -103,6 +116,14 @@ export const router = createBrowserRouter([
                 element: <SimulationListPage />,
               },
               {
+                path: 'simulations/ghost',
+                element: <GhostSetupPage />,
+              },
+              {
+                path: 'simulations/ghost/:runId',
+                element: <GhostSpectatorPage />,
+              },
+              {
                 path: 'simulations/:runId',
                 element: <RunnerPage />,
               },
@@ -127,6 +148,20 @@ export const router = createBrowserRouter([
                   { path: 'workspace', element: <WorkspacePage /> },
                   { path: 'members', element: <MembersPage /> },
                   { path: 'security', element: <SecurityPage /> },
+                  { path: 'api-keys', element: <ApiKeysPanel /> },
+                ],
+              },
+              {
+                path: 'admin',
+                element: (
+                  <AdminRoute>
+                    <SettingsLayout />
+                  </AdminRoute>
+                ),
+                children: [
+                  { index: true, element: <AdminDashboardPage /> },
+                  { path: 'users', element: <AdminUsersPage /> },
+                  { path: 'workspaces', element: <AdminWorkspacesPage /> },
                 ],
               },
               {

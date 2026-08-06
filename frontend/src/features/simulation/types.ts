@@ -10,7 +10,7 @@ export type RunStatus =
   | 'cancelled'
   | 'failed'
 
-export type RunMode = 'baseline' | 'stress' | 'monte_carlo'
+export type RunMode = 'baseline' | 'stress' | 'monte_carlo' | 'ghost'
 
 export interface SimulationConfig {
   months: number

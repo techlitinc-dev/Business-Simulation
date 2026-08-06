@@ -1,7 +1,8 @@
-"""Report model — persisted Format C resilience audits (T30)."""
+"""Report model — persisted Format C resilience audits (T30/T44)."""
 
 from __future__ import annotations
 
+import secrets
 from datetime import datetime
 from typing import Any
 
@@ -15,11 +16,16 @@ from app.db.base import Base
 _jsonb = JSONB().with_variant(JSONB(), "postgresql").with_variant(SQLiteJSON(), "sqlite")
 
 
+def _new_share_token() -> str:
+    return secrets.token_urlsafe(24)
+
+
 class Report(Base):
     __tablename__ = "reports"
     __table_args__ = (
         Index("ix_reports_run_id", "run_id"),
         Index("ix_reports_run_type", "run_id", "type"),
+        Index("ix_reports_share_token", "share_token"),
     )
 
     id: Mapped[str] = mapped_column(
@@ -32,6 +38,11 @@ class Report(Base):
     content_md: Mapped[str] = mapped_column(Text, nullable=False)
     content_json: Mapped[dict[str, Any]] = mapped_column(_jsonb, nullable=False)
     pdf_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # T44: URL-safe share token — null = not shared / revoked. Set on share,
+    # cleared on revoke.
+    share_token: Mapped[str | None] = mapped_column(
+        String(64), unique=True, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -16,10 +16,33 @@ Live status tracker for the build. Updated as phases complete; full detail in `t
 | 5 | Simulation Runs (T25–T29) | Complete |
 | 6 | Reports & Optimization (T30–T33) | **Complete** |
 | 7 | App Shell, Dashboard & Marketing (T34–T39) | **Complete** |
-| 8 | Monetization & Platform Features (T40–T46) | Not started |
+| 8 | Monetization & Platform Features (T40–T46) | **Complete** |
 | 9 | Production Hardening (T47–T51) | Not started |
 
-**Next up:** Phase 8 — Monetization & Platform Features (T40–T46).
+**Next up:** Phase 9 — Production Hardening (T47–T51).
+
+## Phase 8 — Monetization & Platform Features (T40–T46) — Complete ✅
+
+Added the commercial SaaS layer on top of the working simulation product: Stripe billing with an idempotent webhook, per-workspace usage metering with hard plan-limit enforcement, the scenario marketplace, autonomous Ghost Mode runs, public leaderboards + persistent share links, enterprise API keys with per-key rate limiting, and an internal admin dashboard.
+
+### Delivered
+
+- **T40 — Stripe billing** — `PLANS` tier config (`app/services/plans.py`: free/pro/enterprise with price + limits from env price ids); `Subscription` model (migration `a1b2c3d4e5f7`); `billing_service` (checkout session, customer portal, webhook upsert with **event-id idempotency** via `processed_event_ids`); endpoints `POST /billing/checkout`, `POST /billing/portal`, `GET /billing/subscription`; signature-verified `POST /webhooks/stripe`. Stripe SDK pinned in requirements.
+- **T41 — Usage metering + paywalls** — `UsageRecord` model (unique `(workspace_id, period)`); `metering_service` (`get_current_usage`/`increment`/`check_limit`); `PlanLimitExceeded` exception → 402 with `plan_limit_exceeded` code; `enforce_plan_limit` dependency wired into simulation start (runs) + Monte Carlo batches (mc_ticks); LLM tokens metered per agent call via bridge `on_response` hook through HurdleGenerator/Strategist/GhostAgent. Frontend: `UsageMeters` + `PaywallModal` (auto-opens on 402 via api-client), billing store.
+- **T42 — Scenario marketplace** — `Scenario` model (prefixed `scn_`, category enum, JSONB payload, clones_count); publish (validates against `BlueprintPayload`), public browse with category/pagination (no auth), featured, detail (404 for private unless author), clone (creates Blueprint + v1 in caller's workspace, atomic clone count), unpublish/delete with author/admin guards; public `/marketplace` UI with category filter, cards, detail page, publish modal.
+- **T43 — Ghost Mode** — `GhostAgent` (bridge-validated `GhostDecision`, deterministic personality rules — aggressive/conservative/opportunist — enforced in mock mode); `ghost_personality.md` prompt; `ghost_service.start_ghost_run` reusing stress machinery with autoplay loop, ghost decisions tagged `{actor: ghost, personality, rationale}`; `mode="ghost"` + required `config.personality` (422 otherwise); deterministic same-seed traces verified. Frontend: `GhostSetupPage` (blueprint picker + 3 personality cards), `GhostSpectatorPage` (read-only cash curve + decision feed), "Watch Ghost Run" entry point.
+- **T44 — Leaderboards + shared reports** — `SimulationRun.is_public` + `Report.share_token` (migration `c3d4e5f6a7b9`); `PATCH /simulations/{id}` visibility (403 for non-members); public `GET /leaderboard` (completed public MC runs ordered by resilience score, sequential ranks); share/revoke `POST|DELETE .../report/share`; public `GET /reports/shared/{token}` → `SharedReportResponse`. Frontend: `LeaderboardPage` with rank medals, `SharedReportPage` at `/shared/reports/:token`.
+- **T45 — Enterprise API keys** — `ApiKey` model (prefixed `key_`, `fk_`+token_urlsafe plaintext, SHA-256 hash + 12-char prefix, scopes, rpm); create/list/revoke endpoints (admin/owner only); `get_current_workspace` falls back to `X-API-Key` auth; `require_scope` factory (403 missing scope); in-process per-key rate-limit middleware (429 + Retry-After). Frontend: `ApiKeysPanel` in Settings (create with one-time plaintext reveal, scopes, revoke).
+- **T46 — Admin dashboard** — `require_admin` dep (403); `admin_service` aggregates (users/workspaces counts, subscriptions-by-tier, **MRR from PLANS prices**, current-period usage sums); `GET /admin/stats|/users|/workspaces` (email search, pagination). Frontend: admin section in Settings (`AdminDashboardPage` with stat cards + Recharts tier chart, `AdminUsersPage` + `AdminWorkspacesPage`), `AdminRoute` gate + Sidebar "Admin" section shown only for `is_admin`.
+
+### Verification
+
+- `cd backend && pytest` → **358 passed** (76 new phase-8 tests across billing, metering, scenarios, ghost, leaderboard, shared reports, api keys, admin)
+- `cd backend && ruff check app tests && mypy app` → **clean**
+- `alembic upgrade head` / `downgrade -1` → clean through `d4e5f6a7b8c0` (billing → scenarios → leaderboard/share → api_keys)
+- `cd frontend && npx vitest run` → **36 passed across 11 files** (regression-clean)
+- `cd frontend && npm run lint && npm run build` → lint 0 errors (5 warnings), build ok
+
 
 ## Phase 7 — App Shell, Dashboard & Marketing (T34–T39) — Complete ✅
 

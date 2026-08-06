@@ -26,10 +26,40 @@ class StructuredOutputError(Exception):
         super().__init__(f"LLM returned invalid structured output: {validation_error}")
 
 
+class PlanLimitExceeded(Exception):
+    """Raised when a workspace exceeds its plan limit (T41)."""
+
+    def __init__(self, metric: str, limit: int, used: int, tier: str) -> None:
+        self.metric = metric
+        self.limit = limit
+        self.used = used
+        self.tier = tier
+        super().__init__(
+            f"Plan limit exceeded for {metric}: used {used}, limit {limit} (tier {tier})"
+        )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    @app.exception_handler(PlanLimitExceeded)
+    async def plan_limit_handler(request: Request, exc: PlanLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=402,
+            content={
+                "detail": (
+                    f"Plan limit exceeded: {exc.used}/{exc.limit} {exc.metric} used "
+                    f"this month (tier: {exc.tier})"
+                ),
+                "code": "plan_limit_exceeded",
+                "metric": exc.metric,
+                "limit": exc.limit,
+                "used": exc.used,
+                "tier": exc.tier,
+            },
+        )
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:

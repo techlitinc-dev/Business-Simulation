@@ -17,3 +17,8 @@ def get_llm_provider(settings: Any) -> LLMProvider:
     if settings.llm_provider == "mock" or not settings.llm_api_key:
         return MockProvider(model=settings.llm_model)
     return OpenAICompatibleProvider(settings)
+
+
+def provider_is_mock(provider: LLMProvider) -> bool:
+    """True when the provider is the deterministic mock (dev/test mode)."""
+    return isinstance(provider, MockProvider)

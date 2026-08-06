@@ -47,11 +47,38 @@ async function doFetch<T>(path: string, init: RequestInit): Promise<T> {
 
   if (!resp.ok) {
     let detail = resp.statusText
+    let code: string | undefined
+    let metric: string | undefined
+    let limit: number | undefined
+    let used: number | undefined
+    let tier: string | undefined
     try {
-      const body = (await resp.json()) as { detail?: string }
+      const body = (await resp.json()) as {
+        detail?: string
+        code?: string
+        metric?: string
+        limit?: number
+        used?: number
+        tier?: string
+      }
       if (body.detail) detail = body.detail
+      code = body.code
+      metric = body.metric
+      limit = body.limit
+      used = body.used
+      tier = body.tier
     } catch {
       // non-JSON error body; keep statusText
+    }
+    if (resp.status === 402 && code === 'plan_limit_exceeded' && metric) {
+      // Surface the upgrade modal app-wide (T41).
+      const { useBillingStore } = await import('@/stores/billing')
+      useBillingStore.getState().openPaywall({
+        metric,
+        limit: limit ?? 0,
+        used: used ?? 0,
+        tier: tier ?? 'free',
+      })
     }
     throw new ApiError(resp.status, detail)
   }

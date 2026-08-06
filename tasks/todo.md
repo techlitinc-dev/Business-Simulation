@@ -90,13 +90,13 @@ Verification conventions (defined in T01–T05):
 
 ## Phase 8 — Monetization & Platform Features → `tasks/phases/phase-8.md`
 
-- [ ] **T40** Stripe billing: plans, checkout, customer portal, idempotent webhook handler — **L** — deps: T08
-- [ ] **T41** Usage metering + plan-limit enforcement + paywall/upgrade UI — **M** — deps: T40, T25
-- [ ] **T42** Scenario marketplace: publish, browse/featured, clone — **M** — deps: T17
-- [ ] **T43** Ghost Mode: autonomous AI personality runs + spectator UI — **L** — deps: T26, T24
-- [ ] **T44** Public leaderboards + shareable report pages — **M** — deps: T30
-- [ ] **T45** Enterprise API keys + per-key rate limiting — **M** — deps: T08
-- [ ] **T46** Admin dashboard: users, workspaces, usage, revenue stats — **M** — deps: T40
+- [x] **T40** Stripe billing: plans, checkout, customer portal, idempotent webhook handler — **L** — deps: T08
+- [x] **T41** Usage metering + plan-limit enforcement + paywall/upgrade UI — **M** — deps: T40, T25
+- [x] **T42** Scenario marketplace: publish, browse/featured, clone — **M** — deps: T17
+- [x] **T43** Ghost Mode: autonomous AI personality runs + spectator UI — **L** — deps: T26, T24
+- [x] **T44** Public leaderboards + shareable report pages — **M** — deps: T30
+- [x] **T45** Enterprise API keys + per-key rate limiting — **M** — deps: T08
+- [x] **T46** Admin dashboard: users, workspaces, usage, revenue stats — **M** — deps: T40
 
 ## Phase 9 — Production Hardening → `tasks/phases/phase-9.md`
 

@@ -1,7 +1,7 @@
 """FastAPI dependency wiring: DB session, current user, workspace RBAC."""
 
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from typing import Annotated
 
 import jwt
@@ -17,6 +17,8 @@ from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
 from app.models.workspace import Membership, Role, Workspace
+from app.services import metering_service
+from app.services.metering_service import Metric
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -77,6 +79,140 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+def require_admin(user: CurrentUser) -> None:
+    """403 unless the caller is an admin (T46)."""
+    if not user.is_admin:
+        raise DomainError(status_code=403, detail="Admin access required")
+
+
+AdminUser = Annotated[User, Depends(require_admin)]
+
+
+async def get_api_key_workspace(
+    db: DbSession,
+    x_api_key: Annotated[str | None, Header(default=None)] = None,
+) -> Workspace | None:
+    """Authenticate an ``X-API-Key`` header → the key's workspace (T45).
+
+    Returns None when no header is present; raises 401 for unknown/revoked keys.
+    """
+    if x_api_key is None:
+        return None
+    from app.services.api_key_service import find_active_key
+
+    key = await find_active_key(db, x_api_key)
+    if key is None:
+        raise DomainError(status_code=401, detail="Invalid or revoked API key")
+    workspace = await db.get(Workspace, key.workspace_id)
+    if workspace is None:
+        raise DomainError(status_code=401, detail="Invalid or revoked API key")
+    return workspace
+
+
+class Principal:
+    """Authenticated caller — either a JWT user or an API key workspace."""
+
+    def __init__(
+        self,
+        *,
+        user: User | None = None,
+        workspace: Workspace | None = None,
+        api_key: object | None = None,
+    ) -> None:
+        self.user = user
+        self.workspace = workspace
+        self.api_key = api_key
+
+    @property
+    def is_api_key(self) -> bool:
+        return self.api_key is not None
+
+    @property
+    def workspace_id(self) -> str | None:
+        if self.user is not None:
+            # JWT users resolve their workspace via X-Workspace-Id at call time;
+            # here we return the header-resolved workspace when present.
+            return str(self.workspace.id) if self.workspace is not None else None
+        return str(self.workspace.id) if self.workspace is not None else None
+
+
+async def get_current_principal(
+    db: DbSession,
+    user: CurrentUser,
+    x_api_key: Annotated[str | None, Header(default=None)] = None,
+) -> Principal:
+    """JWT-first, then fall back to X-API-Key (T45).
+
+    When a JWT is present it wins (API keys are for machine access).
+    """
+    if x_api_key is not None and user is None:
+        workspace = await get_api_key_workspace(db, x_api_key=x_api_key)
+        if workspace is not None:
+            from app.models.api_key import ApiKey
+            from app.services.api_key_service import hash_key
+
+            key = await db.scalar(
+                select(ApiKey).where(ApiKey.key_hash == hash_key(x_api_key))
+            )
+            return Principal(workspace=workspace, api_key=key)
+    return Principal(user=user, workspace=None)
+
+
+def require_scope(scope: str) -> Callable[..., object]:
+    """Dependency factory: 403 when an API key lacks ``scope``.
+
+    JWT principals implicitly have all scopes.
+    """
+
+    def _guard(principal: Annotated[Principal, Depends(get_current_principal)]) -> None:
+        if principal.api_key is not None:
+            scopes = getattr(principal.api_key, "scopes", [])
+            if scope not in scopes:
+                raise DomainError(
+                    status_code=403, detail=f"missing scope: {scope}"
+                )
+
+    return _guard
+
+
+CurrentPrincipal = Annotated[Principal, Depends(get_current_principal)]
+
+
+async def get_optional_user(
+    db: DbSession,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
+) -> User | None:
+    """Like ``get_current_user`` but returns None when no token is present.
+
+    Used by public endpoints that optionally personalize (T42 scenario detail).
+    A present-but-invalid token still raises 401.
+    """
+    if credentials is None:
+        return None
+    return await get_current_user(db, credentials=credentials)
+
+
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
+
+
+def enforce_plan_limit(metric: Metric, amount: int = 1) -> Callable[..., object]:
+    """Dependency factory (T41): check the workspace's plan limit before the
+    endpoint runs, then increment the meter after it succeeds.
+
+    Wire as ``Depends(enforce_plan_limit("runs"))``.
+    """
+
+    async def _guard(
+        db: DbSession,
+        workspace: CurrentWorkspace,
+    ) -> AsyncGenerator[None, None]:
+        await metering_service.check_limit(db, workspace.id, metric, amount=amount)
+        yield
+        await metering_service.increment(db, workspace.id, metric, amount=amount)
+
+    return _guard
+
+
 async def _get_membership(db: AsyncSession, user_id: str, workspace_id: str) -> Membership | None:
     result = await db.scalar(
         select(Membership).where(
@@ -89,15 +225,30 @@ async def _get_membership(db: AsyncSession, user_id: str, workspace_id: str) -> 
 
 async def get_current_workspace(
     db: DbSession,
-    user: CurrentUser,
+    user: OptionalUser,
     x_workspace_id: str | None = Header(default=None),
+    x_api_key: str | None = Header(default=None),
 ) -> Workspace:
     """Resolve the caller's active workspace from the ``X-Workspace-Id`` header.
 
     Used by resource routers (blueprints, simulations, ...) that are scoped to
     the workspace the client has selected. Outsiders get 403, mirroring the
     multi-tenant guard used on ``/workspaces/{id}/*`` routes.
+
+    T45: when the request carries an ``X-API-Key`` instead of a JWT, the key's
+    workspace is returned (programmatic access).
     """
+    if x_api_key is not None:
+        workspace = await get_api_key_workspace(db, x_api_key=x_api_key)
+        if workspace is None:
+            raise DomainError(status_code=401, detail="Invalid or revoked API key")
+        if not x_workspace_id or str(workspace.id) != x_workspace_id:
+            raise DomainError(status_code=403, detail="Not a member of this workspace")
+        return workspace
+
+    if user is None:
+        raise DomainError(status_code=401, detail="Not authenticated")
+
     if not x_workspace_id:
         raise DomainError(status_code=403, detail="X-Workspace-Id header is required")
 

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Toaster } from 'sonner'
 
+import PaywallModal from '@/features/billing/PaywallModal'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 
@@ -26,6 +27,7 @@ export default function AppShell() {
           },
         }}
       />
+      <PaywallModal />
     </div>
   )
 }

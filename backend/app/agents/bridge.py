@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import json
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -83,6 +84,7 @@ async def generate_structured[T: BaseModel](
     max_repairs: int = 2,
     temperature: float = 0.2,
     clamp: bool = True,
+    on_response: Callable[[LLMResponse], Any] | None = None,
 ) -> T:
     """Call the provider, then validate/repair until the result fits ``schema``."""
     result, _ = await generate_structured_with_response(
@@ -93,6 +95,7 @@ async def generate_structured[T: BaseModel](
         max_repairs=max_repairs,
         temperature=temperature,
         clamp=clamp,
+        on_response=on_response,
     )
     return result
 
@@ -106,15 +109,24 @@ async def generate_structured_with_response[T: BaseModel](
     max_repairs: int = 2,
     temperature: float = 0.2,
     clamp: bool = True,
+    on_response: Callable[[LLMResponse], Any] | None = None,
 ) -> tuple[T, LLMResponse]:
     """Like ``generate_structured`` but also returns the last provider response
-    (for token/cost reporting by callers such as the Forge review endpoint)."""
+    (for token/cost reporting by callers such as the Forge review endpoint).
+
+    ``on_response`` is invoked with every provider response (including repair
+    attempts) — services use it to meter LLM tokens (T41).
+    """
     schema_json = schema.model_json_schema()
     last_response: LLMResponse | None = None
 
     async def _complete(prompt: str) -> str:
         nonlocal last_response
         last_response = await provider.complete(system_prompt, prompt, temperature=temperature)
+        if on_response is not None:
+            result = on_response(last_response)
+            if result is not None and hasattr(result, "__await__"):
+                await result
         return last_response.content
 
     raw = await _complete(user_prompt)

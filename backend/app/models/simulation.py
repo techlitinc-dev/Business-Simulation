@@ -77,6 +77,8 @@ class SimulationRun(Base):
     result: Mapped[dict[str, Any] | None] = mapped_column(_jsonb, nullable=True)
     # Parked engine state between stress segments (T26); null for one-shot runs.
     state_snapshot: Mapped[dict[str, Any] | None] = mapped_column(_jsonb, nullable=True)
+    # T44: visible on the public leaderboard (owner opt-in).
+    is_public: Mapped[bool] = mapped_column(default=False, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

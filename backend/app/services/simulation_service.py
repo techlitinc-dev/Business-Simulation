@@ -428,6 +428,14 @@ async def run_stress_segment(
     settings = get_settings()
     provider = get_llm_provider(settings)
 
+    # T41: meter LLM tokens for every agent call this segment makes.
+    async def _meter_tokens(response: Any) -> None:
+        from app.services.metering_service import increment
+
+        tokens = int(response.prompt_tokens) + int(response.completion_tokens)
+        if tokens > 0:
+            await increment(db, run.workspace_id, "llm_tokens", amount=tokens)
+
     months = int(run.config.get("months", 24))
     current_month = run.current_month
     next_hurdle = _next_hurdle_month(run.config, current_month)
@@ -486,13 +494,13 @@ async def run_stress_segment(
         chronicle = Chronicle.from_dict(run.config["chronicle"])
 
     difficulty = _difficulty_value(run.config.get("difficulty", "standard"))
-    generator = HurdleGenerator(provider)
+    generator = HurdleGenerator(provider, on_response=_meter_tokens)
     hurdle = await generator.generate(
         state, kpis, chronicle, difficulty=difficulty, month=hurdle_month
     )
 
     # Strategist: attach a 12-month engine projection per option.
-    strategist = Strategist(provider)
+    strategist = Strategist(provider, on_response=_meter_tokens)
     advise = await strategist.advise(state, kpis, hurdle, chronicle)
     payload = hurdle.model_dump(mode="json")
     payload["options_projection"] = [
@@ -652,6 +660,23 @@ async def start_simulation(
         return await start_stress_run(db, workspace_id=workspace_id, req=req, redis=redis)
     if req.mode == "monte_carlo":
         return await start_monte_carlo_run(db, workspace_id=workspace_id, req=req, redis=redis)
+    if req.mode == "ghost":
+        from app.services.ghost_service import start_ghost_run
+
+        personality = req.config.personality
+        if personality is None:
+            raise DomainError(
+                status_code=422,
+                detail="config.personality is required for ghost mode",
+            )
+        return await start_ghost_run(
+            db,
+            workspace_id=workspace_id,
+            blueprint_version_id=req.blueprint_version_id,
+            personality=personality,
+            seed=req.seed,
+            redis=redis,
+        )
     raise DomainError(status_code=422, detail=f"Unknown mode: {req.mode}")
 
 

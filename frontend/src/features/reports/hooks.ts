@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiFetch } from '@/lib/api-client'
 import { useWorkspaceStore } from '@/stores/workspace-store'
@@ -66,10 +66,18 @@ export function useReport(runId: string | undefined) {
   })
 }
 
+export interface SharedReportOut {
+  blueprint_name: string
+  completed_at: string
+  content_md: string
+  content_json: ReportContent
+}
+
 export function useSharedReport(token: string | undefined) {
   return useQuery({
     queryKey: ['shared-report', token],
-    queryFn: () => apiFetch<ReportOut>(`/api/v1/reports/shared/${token}`),
+    queryFn: () =>
+      apiFetch<SharedReportOut>(`/api/v1/reports/shared/${token}`),
     enabled: Boolean(token),
   })
 }
@@ -90,13 +98,27 @@ export function useExportPdf(runId: string | undefined) {
 export function useShareReport(runId: string | undefined) {
   return useMutation({
     mutationFn: () =>
-      apiFetch<{ share_url: string; token: string; expires_at: string }>(
+      apiFetch<{ share_url: string; token: string }>(
         `/api/v1/reports/simulations/${runId}/report/share`,
         {
           method: 'POST',
           headers: workspaceHeaders(),
         },
       ),
+  })
+}
+
+export function useRevokeShare(runId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<void>(`/api/v1/reports/simulations/${runId}/report/share`, {
+        method: 'DELETE',
+        headers: workspaceHeaders(),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['report', runId] })
+    },
   })
 }
 

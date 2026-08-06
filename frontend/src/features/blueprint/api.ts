@@ -61,6 +61,17 @@ export function useBlueprintValidation(id: string | undefined) {
   })
 }
 
+export function useBlueprintVersions(id: string | undefined) {
+  return useQuery({
+    queryKey: ['blueprint', id, 'versions'],
+    queryFn: () =>
+      apiFetch<BlueprintVersionOut[]>(`/api/v1/blueprints/${id}/versions`, {
+        headers: workspaceHeaders(),
+      }),
+    enabled: Boolean(id),
+  })
+}
+
 export function useCreateBlueprint() {
   const queryClient = useQueryClient()
   return useMutation({

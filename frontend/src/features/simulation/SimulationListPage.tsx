@@ -1,4 +1,5 @@
-import { FlaskConical, Play } from 'lucide-react'
+import { FlaskConical, Ghost, Play } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +35,11 @@ export default function SimulationListPage() {
             Stress-test your blueprint in the War Room.
           </p>
         </div>
+        <Button variant="outline" asChild>
+          <Link to="/app/simulations/ghost">
+            <Ghost className="h-4 w-4" /> Watch Ghost Run
+          </Link>
+        </Button>
       </div>
 
       <div>

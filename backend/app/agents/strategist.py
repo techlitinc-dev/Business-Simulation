@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import random
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -32,8 +33,13 @@ _SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "strategic_options.md").re
 
 
 class Strategist:
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        provider: LLMProvider,
+        on_response: Callable[[Any], Any] | None = None,
+    ) -> None:
         self._provider = provider
+        self._on_response = on_response
 
     async def propose_options(
         self,
@@ -57,6 +63,7 @@ class Strategist:
             user_prompt,
             temperature=0.6,
             clamp=True,
+            on_response=self._on_response,
         )
         return result.options
 

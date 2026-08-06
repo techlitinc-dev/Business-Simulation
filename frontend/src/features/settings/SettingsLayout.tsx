@@ -7,6 +7,7 @@ const SETTINGS_TABS = [
   { label: 'Workspace', to: '/app/settings/workspace' },
   { label: 'Members', to: '/app/settings/members' },
   { label: 'Security', to: '/app/settings/security' },
+  { label: 'API keys', to: '/app/settings/api-keys' },
 ]
 
 export default function SettingsLayout() {

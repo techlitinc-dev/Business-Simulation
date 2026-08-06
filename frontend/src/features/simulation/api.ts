@@ -14,7 +14,12 @@ export interface StartSimulationBody {
   blueprint_version_id: string
   mode: RunMode
   seed?: number | null
-  config?: { months?: number; difficulty?: string; n_runs?: number }
+  config?: {
+    months?: number
+    difficulty?: string
+    n_runs?: number
+    personality?: 'aggressive' | 'conservative' | 'opportunist'
+  }
 }
 
 export function useStartSimulation() {

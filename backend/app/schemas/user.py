@@ -26,7 +26,7 @@ class UserUpdate(BaseModel):
 
 
 class UserRead(BaseModel):
-    """Full profile including T36 onboarding state."""
+    """Full profile including T36 onboarding state + T46 admin flag."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,6 +34,7 @@ class UserRead(BaseModel):
     email: str
     name: str
     is_verified: bool
+    is_admin: bool
     industry: str | None
     stage: str | None
     primary_fear: str | None

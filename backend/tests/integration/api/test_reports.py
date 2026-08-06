@@ -199,7 +199,7 @@ async def test_share_round_trip_public(client: AsyncClient, monkeypatch) -> None
     assert shared.status_code == 200
     body = shared.json()
     assert "### SURVIVAL METRICS" in body["content_md"]
-    assert body["run_id"] == run_id
+    assert body["blueprint_name"] == "Rpt BP"
 
 
 async def test_share_tampered_token_404(client: AsyncClient, monkeypatch) -> None:
@@ -220,32 +220,28 @@ async def test_share_tampered_token_404(client: AsyncClient, monkeypatch) -> Non
     assert resp.status_code == 404
 
 
-async def test_share_expired_token_410(client: AsyncClient, monkeypatch) -> None:
+async def test_share_revoke_invalidates(client: AsyncClient, monkeypatch) -> None:
     fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
     monkeypatch.setattr("app.api.deps.get_redis", lambda: fake)
 
     owner = await _owner(client)
     run_id = await _make_mc_run(client, owner["headers"])
+    token = (
+        await client.post(
+            f"/api/v1/reports/simulations/{run_id}/report/share",
+            headers=owner["headers"],
+        )
+    ).json()["token"]
 
-    # Build a token, then monkeypatch the endpoint's serializer loads to
-    # simulate max_age being exceeded (SignatureExpired).
-    from itsdangerous import SignatureExpired
+    assert (await client.get(f"/api/v1/reports/shared/{token}")).status_code == 200
 
-    share = await client.post(
+    revoke = await client.delete(
         f"/api/v1/reports/simulations/{run_id}/report/share",
         headers=owner["headers"],
     )
-    token = share.json()["token"]
+    assert revoke.status_code == 204
 
-    def _expired_loads(self, value, max_age):
-        raise SignatureExpired("expired")
-
-    from itsdangerous import URLSafeTimedSerializer
-
-    monkeypatch.setattr(URLSafeTimedSerializer, "loads", _expired_loads)
-
-    resp = await client.get(f"/api/v1/reports/shared/{token}")
-    assert resp.status_code == 410
+    assert (await client.get(f"/api/v1/reports/shared/{token}")).status_code == 404
 
 
 # ---------------------------------------------------------------------------

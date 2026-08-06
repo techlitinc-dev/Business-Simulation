@@ -171,6 +171,25 @@ def _mock_post_mortem(user: str) -> str:
     )
 
 
+def _mock_ghost_decision(user: str) -> str:
+    """Deterministic, schema-valid GhostDecision (T43).
+
+    The ghost agent overrides the picked option with its personality rule in
+    mock mode anyway, so the canned option_id here is just a valid placeholder.
+    """
+    seed = _hash_seed(user)
+    pick = _pick(seed, ["A", "B", "C", "D"])
+    return json.dumps(
+        {
+            "option_id": pick,
+            "rationale": (
+                "Mock-mode decision: the personality rule determines the final "
+                "pick deterministically."
+            ),
+        }
+    )
+
+
 class MockProvider:
     """Deterministic provider for dev/test. Identical prompts -> identical output.
 
@@ -197,6 +216,8 @@ class MockProvider:
             return _mock_options(user)
         if "post-mortem" in user.lower() or "post mortem" in user.lower():
             return _mock_post_mortem(user)
+        if "Choose the best strategic option" in user:
+            return _mock_ghost_decision(user)
         return "{}"
 
     async def complete(

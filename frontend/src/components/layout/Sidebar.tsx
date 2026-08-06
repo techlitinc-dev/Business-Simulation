@@ -128,6 +128,47 @@ export default function Sidebar() {
             {item.label}
           </NavLink>
         ))}
+        {user?.is_admin && (
+          <div className="pt-2">
+            <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Admin
+            </p>
+            <NavLink
+              to="/app/admin"
+              end
+              className={({ isActive }) =>
+                cn(
+                  'block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                  isActive && 'bg-accent text-accent-foreground',
+                )
+              }
+            >
+              Overview
+            </NavLink>
+            <NavLink
+              to="/app/admin/users"
+              className={({ isActive }) =>
+                cn(
+                  'block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                  isActive && 'bg-accent text-accent-foreground',
+                )
+              }
+            >
+              Users
+            </NavLink>
+            <NavLink
+              to="/app/admin/workspaces"
+              className={({ isActive }) =>
+                cn(
+                  'block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                  isActive && 'bg-accent text-accent-foreground',
+                )
+              }
+            >
+              Workspaces
+            </NavLink>
+          </div>
+        )}
       </nav>
 
       <div className="border-t border-border p-3">

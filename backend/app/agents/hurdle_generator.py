@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -53,8 +54,13 @@ def build_vital_signs(state: BusinessState, kpis: dict[str, Any]) -> dict[str, A
 
 
 class HurdleGenerator:
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        provider: LLMProvider,
+        on_response: Callable[[Any], Any] | None = None,
+    ) -> None:
         self._provider = provider
+        self._on_response = on_response
 
     async def generate(
         self,
@@ -81,6 +87,7 @@ class HurdleGenerator:
             user_prompt,
             temperature=0.7,
             clamp=True,
+            on_response=self._on_response,
         )
 
         # Continuity: record the hurdle in the chronicle automatically.

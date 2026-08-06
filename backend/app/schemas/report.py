@@ -76,6 +76,34 @@ class ReportResponse(BaseModel):
     created_at: datetime
 
 
+class LeaderboardEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rank: int
+    run_id: str
+    workspace_name: str
+    blueprint_name: str
+    resilience_score: int
+    survival_rate: float
+    median_lifespan_months: int
+    completed_at: datetime
+
+
+class LeaderboardResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entries: list[LeaderboardEntry]
+
+
+class SharedReportResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    blueprint_name: str
+    completed_at: datetime
+    content_md: str
+    content_json: dict[str, Any]
+
+
 # ---------------------------------------------------------------------------
 # T31 — post-mortem output
 # ---------------------------------------------------------------------------

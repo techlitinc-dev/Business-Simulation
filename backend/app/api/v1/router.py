@@ -4,7 +4,20 @@ from fastapi import APIRouter
 
 from app.core.config import get_settings
 
-from .endpoints import auth, blueprints, reports, simulations, users, workspaces
+from .endpoints import (
+    admin,
+    api_keys,
+    auth,
+    billing,
+    blueprints,
+    leaderboard,
+    reports,
+    scenarios,
+    simulations,
+    users,
+    webhooks,
+    workspaces,
+)
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -14,6 +27,12 @@ api_router.include_router(workspaces.router)
 api_router.include_router(blueprints.router)
 api_router.include_router(simulations.router)
 api_router.include_router(reports.router)
+api_router.include_router(billing.router)
+api_router.include_router(webhooks.router)
+api_router.include_router(scenarios.router)
+api_router.include_router(leaderboard.router)
+api_router.include_router(api_keys.router)
+api_router.include_router(admin.router)
 
 
 @api_router.get("/health")

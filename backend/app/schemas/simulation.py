@@ -15,13 +15,15 @@ class SimulationConfig(BaseModel):
     months: int = Field(default=24, ge=1, le=120)
     difficulty: Literal["standard", "hard", "nightmare"] = "standard"
     n_runs: int = Field(default=100, ge=1, le=1000)
+    # T43 Ghost Mode: required when mode="ghost".
+    personality: Literal["aggressive", "conservative", "opportunist"] | None = None
 
 
 class SimulationStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     blueprint_version_id: str = Field(min_length=1)
-    mode: Literal["baseline", "stress", "monte_carlo"] = "baseline"
+    mode: Literal["baseline", "stress", "monte_carlo", "ghost"] = "baseline"
     seed: int | None = Field(default=None, ge=0)
     config: SimulationConfig = SimulationConfig()
 
@@ -55,6 +57,12 @@ class SimulationRunResponse(BaseModel):
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+class SimulationVisibilityUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    is_public: bool
 
 
 class TickLogResponse(BaseModel):

@@ -268,13 +268,13 @@ Detailed cards live in `tasks/phases/`. Master checklist: `tasks/todo.md`.
 - [x] T39: Marketing landing page + pricing page
 
 ### Phase 8 — Monetization & Platform Features
-- [ ] T40: Stripe billing — plans, checkout, portal, webhooks
-- [ ] T41: Usage metering + plan limit enforcement + paywall UI
-- [ ] T42: Scenario marketplace — publish, browse, clone
-- [ ] T43: Ghost Mode — autonomous AI personality runs + spectator view
-- [ ] T44: Public leaderboards + shareable report links
-- [ ] T45: Enterprise API keys + per-key rate limiting
-- [ ] T46: Admin dashboard (users, workspaces, usage, revenue)
+- [x] T40: Stripe billing — plans, checkout, portal, webhooks
+- [x] T41: Usage metering + plan limit enforcement + paywall UI
+- [x] T42: Scenario marketplace — publish, browse, clone
+- [x] T43: Ghost Mode — autonomous AI personality runs + spectator view
+- [x] T44: Public leaderboards + shareable report links
+- [x] T45: Enterprise API keys + per-key rate limiting
+- [x] T46: Admin dashboard (users, workspaces, usage, revenue)
 
 ### Phase 9 — Production Hardening
 - [ ] T47: Test coverage push — engine ≥90%, API integration ≥80%

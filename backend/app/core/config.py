@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     # Stripe billing
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    stripe_price_pro_monthly: str | None = None
+    stripe_price_enterprise_monthly: str | None = None
 
     # Email (SMTP) — empty host means the console backend is used (dev/test)
     smtp_host: str | None = None
