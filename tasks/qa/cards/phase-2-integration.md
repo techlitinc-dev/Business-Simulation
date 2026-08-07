@@ -44,6 +44,10 @@ pre_phase2_clean() {
   # Seed idempotently so fixtures exist (P3 also relies on this).
   docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T backend alembic upgrade head >/dev/null 2>&1
   docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T backend python -m app.utils.seed >/dev/null 2>&1
+  # Bump QA-registered workspaces to the pro tier so the phase's simulation
+  # cards (baseline/stress/MC) are not throttled by the free 3-runs/month cap.
+  docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge \
+    -c "UPDATE workspaces SET plan_tier='pro' WHERE name='QA User''s Workspace';" >/dev/null 2>&1
 }
 
 post_phase2_teardown() {
@@ -68,13 +72,20 @@ register_user() {
     echo "register $email: unexpected status $code"
     return 1
   fi
-  code="$("${CURL[@]}" -X POST "$API/auth/login" \
+  # Login — write the body to $out (CURL's fixed -o /tmp/qa_resp.json would
+  # clobber per-user output files like /tmp/qa_resp_b.json).
+  code="$(curl -s -o "$out" -w '%{http_code}' -X POST "$API/auth/login" \
     -H 'Content-Type: application/json' \
     -d "{\"email\":\"$email\",\"password\":\"$pass\"}")"
   assert_eq "$code" "200" "login $email" || return 1
   ACCESS="$($J '.access_token' "$out")"
   WID="$($J '.workspace_id // .personal_workspace_id // empty' "$out")"
   [[ -n "$ACCESS" ]] || { echo "login $email: no access_token"; return 1; }
+  # QA workspaces start on the free tier (3 runs/month), which throttles the
+  # phase's simulation cards. Bump the user's workspace to pro so the suite
+  # isn't quota-limited. Idempotent; harmless if already pro.
+  docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge \
+    -c "UPDATE workspaces SET plan_tier='pro' WHERE name='QA User''s Workspace';" >/dev/null 2>&1
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -131,10 +142,14 @@ card_P2T003() {
     -d '{"email":"qa-b@forge.dev","role":"member"}')"
   assert_eq "$code" "201" "create invite"
   invite_url="$($J '.invite_url' /tmp/qa_resp.json)"
-  assert_contains "$invite_url" "invites/" "invite_url shape"
-  local token="${invite_url##*/}"
-  # Register user B, accept the invite.
-  register_user "qa-b@forge.dev" "QA-pass-5678!" /tmp/qa_resp_b.json
+  # Invite URLs are <frontend>/accept-invite?token=<token> — parse the token
+  # from the query string (never assume a trailing path segment).
+  local token
+  token="${invite_url##*token=}"
+  [[ -n "$token" && "$token" != "$invite_url" ]] || { echo "invite_url has no token: $invite_url"; return 1; }
+  # Register user B, accept the invite. register_user_b sets ACCESS_B (the
+  # accept + RBAC checks below need B's token, not A's).
+  register_user_b
   local code2
   code2="$("${CURL[@]}" -X POST "$API/invites/$token/accept" \
     -H "Authorization: Bearer $ACCESS_B" -H 'Content-Type: application/json' -d '{}')"
@@ -151,14 +166,18 @@ card_P2T003() {
   assert_eq "$code4" "403" "member cannot admin workspace"
 }
 ACCESS_B=""
-# register_user stores B's token separately for P2T003/P2T004.
+# register_user stores B's token separately for P2T003/P2T004. register_user
+# overwrites the global WID (login returns no workspace_id), so save/restore it
+# — callers rely on WID still pointing at A's workspace.
 register_user_b() {
+  local saved_wid="$WID"
   register_user "qa-b@forge.dev" "QA-pass-5678!" /tmp/qa_resp_b.json
   ACCESS_B="$ACCESS"
+  WID="$saved_wid"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
-# P2T004 — cross-workspace isolation: blueprints read as 404 outside the ws
+# P2T004 — cross-workspace isolation: blueprints read as 403 outside the ws
 # ────────────────────────────────────────────────────────────────────────────
 card_P2T004() {
   register_user "qa-a@forge.dev" "QA-pass-1234!" /tmp/qa_resp.json
@@ -172,12 +191,24 @@ card_P2T004() {
     -d "{\"name\":\"SaaSFlow\",\"industry\":\"SaaS\",\"stage\":\"Seed\",\"payload\":$(cat "$FIXTURES/blueprint_valid.json")}")"
   assert_eq "$code" "201" "create blueprint"
   bp_id="$($J '.id' /tmp/qa_resp.json)"
-  # B (separate workspace, not a member) reading it → 404 (no cross-tenant leak).
-  register_user_b
-  local code2
+  # A fresh, unrelated user (C — NOT qa-b, who joined A's workspace in P2T003)
+  # reading A's blueprint outside A's workspace → 403 "Not a member"
+  # (the multi-tenant guard; no cross-tenant data leak).
+  local c_reg c_login c_access code2
+  c_reg="$("${CURL[@]}" -X POST "$API/auth/register" \
+    -H 'Content-Type: application/json' \
+    -d '{"email":"qa-c@forge.dev","name":"QA User","password":"QA-pass-9999!"}')"
+  if [[ "$c_reg" != "201" && "$c_reg" != "409" ]]; then
+    echo "register qa-c: unexpected status $c_reg"; return 1
+  fi
+  c_login="$("${CURL[@]}" -X POST "$API/auth/login" \
+    -H 'Content-Type: application/json' \
+    -d '{"email":"qa-c@forge.dev","password":"QA-pass-9999!"}')"
+  [[ "$c_login" == "200" ]] || return 1
+  c_access="$($J '.access_token' /tmp/qa_resp.json)"
   code2="$("${CURL[@]}" "$API/blueprints/$bp_id" \
-    -H "Authorization: Bearer $ACCESS_B" -H "X-Workspace-Id: $WID")"
-  assert_eq "$code2" "404" "cross-workspace blueprint reads as 404"
+    -H "Authorization: Bearer $c_access" -H "X-Workspace-Id: $WID")"
+  assert_eq "$code2" "403" "cross-workspace blueprint reads as 403"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -238,15 +269,17 @@ card_P2T006() {
   # Fetch pending event via GET run → events; decide option A.
   event_id="$(curl -s "$API/simulations/$run_id" -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" | jq -r '.pending_event_id // empty')"
   [[ -n "$event_id" ]] || event_id="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT id FROM simulation_events WHERE run_id='$run_id' AND status='pending' LIMIT 1" | tr -d ' \r\n')"
-  assert_contains "$event_id" "-" "pending event exists"
+  # Event ids look like evt_<hex> (underscore, not hyphen) — require non-empty.
+  [[ -n "$event_id" ]] || { echo "no pending event found for run $run_id"; return 1; }
   code="$("${CURL[@]}" -X POST "$API/simulations/$run_id/decide" \
     -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" \
     -H 'Content-Type: application/json' \
     -d "{\"event_id\":\"$event_id\",\"option_id\":\"A\"}")"
   assert_eq "$code" "200" "apply decision"
   # Run resumes; eventually completes or reaches another hurdle (both legal).
+  # The decide response nests the run under .run (run.status).
   local status
-  status="$($J '.status' /tmp/qa_resp.json)"
+  status="$($J '.run.status // .status' /tmp/qa_resp.json)"
   if [[ "$status" == "completed" || "$status" == "awaiting_decision" || "$status" == "dead" ]]; then
     echo "PASS: run continued after decision (status=$status)"
   else
@@ -313,19 +346,48 @@ card_P2T008() {
 # ────────────────────────────────────────────────────────────────────────────
 # P2T009 — report compare contract: two completed runs → deltas + verdict
 # ────────────────────────────────────────────────────────────────────────────
+# MC runs complete asynchronously via the Celery worker. Create two in A's
+# workspace, wait for both to reach 'completed', then compare them.
+wait_mc_completed() {
+  local run_id="$1" status="" i
+  for i in $(seq 1 30); do
+    status="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT status FROM simulation_runs WHERE id='$run_id'" | tr -d ' \r\n')"
+    [[ "$status" == "completed" ]] && return 0
+    [[ "$status" == "failed" ]] && { echo "MC run $run_id failed"; return 1; }
+    sleep 2
+  done
+  echo "MC run $run_id timed out (status=$status)"; return 1
+}
+
+start_mc_run() {
+  # Start a Monte Carlo run in the current workspace; echo the new run id.
+  local bp_id ver
+  bp_id="$(curl -s "$API/blueprints" -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" | jq -r '.[0].id')"
+  ver="$(curl -s "$API/blueprints/$bp_id/versions" -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" | jq -r '.[0].id')"
+  local code
+  code="$("${CURL[@]}" -X POST "$API/simulations" \
+    -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" \
+    -H 'Content-Type: application/json' \
+    -d "{\"blueprint_version_id\":\"$ver\",\"mode\":\"monte_carlo\",\"seed\":7,\"config\":{\"months\":24,\"n_runs\":20}}")"
+  [[ "$code" == "201" ]] || { echo "start MC: unexpected status $code"; return 1; }
+  $J '.id' /tmp/qa_resp.json
+}
+
 card_P2T009() {
   register_user "qa-a@forge.dev" "QA-pass-1234!" /tmp/qa_resp.json
   local owner_wid code run_a run_b
   owner_wid="$(curl -s "$API/workspaces" -H "Authorization: Bearer $ACCESS" | jq -r '.[0].id')"
   WID="$owner_wid"
-  run_a="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT id FROM simulation_runs WHERE mode='monte_carlo' AND status='completed' ORDER BY created_at LIMIT 1" | tr -d ' \r\n')"
-  run_b="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT id FROM simulation_runs WHERE mode='monte_carlo' AND status='completed' ORDER BY created_at DESC LIMIT 1" | tr -d ' \r\n')"
+  run_a="$(start_mc_run)" || return 1
+  run_b="$(start_mc_run)" || return 1
+  wait_mc_completed "$run_a" || return 1
+  wait_mc_completed "$run_b" || return 1
   code="$("${CURL[@]}" "$API/reports/compare?a=$run_a&b=$run_b" \
     -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID")"
   assert_eq "$code" "200" "compare runs"
   assert "$J '.deltas.survival_rate_pp | type == "number"' /tmp/qa_resp.json == true"
   assert "$J '.verdict | IN(\"improved\",\"regressed\",\"unchanged\")' /tmp/qa_resp.json == true"
-  assert "$J '.a.run_id == $run_a' /tmp/qa_resp.json" "run a echoed"
+  assert_eq "$($J '.a.run_id' /tmp/qa_resp.json)" "$run_a" "run a echoed"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -333,49 +395,66 @@ card_P2T009() {
 # ────────────────────────────────────────────────────────────────────────────
 card_P2T010() {
   register_user "qa-a@forge.dev" "QA-pass-1234!" /tmp/qa_resp.json
-  local owner_wid code sc_id
+  local owner_wid code sc_id bp_id bv_id
   owner_wid="$(curl -s "$API/workspaces" -H "Authorization: Bearer $ACCESS" | jq -r '.[0].id')"
   WID="$owner_wid"
+  # Publish a scenario with a valid category + a real blueprint version id.
+  bp_id="$(curl -s "$API/blueprints" -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" | jq -r '.[0].id')"
+  bv_id="$(curl -s "$API/blueprints/$bp_id/versions" -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" | jq -r '.[0].id')"
   code="$("${CURL[@]}" -X POST "$API/scenarios" \
     -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" \
     -H 'Content-Type: application/json' \
-    -d "{\"title\":\"QA Scenario\",\"description\":\"desc\",\"category\":\"market\",\"blueprint_version_id\":null}")"
+    -d "{\"title\":\"QA Scenario\",\"description\":\"desc\",\"category\":\"market_crash\",\"blueprint_version_id\":\"$bv_id\"}")"
   assert_eq "$code" "201" "publish scenario"
   sc_id="$($J '.id' /tmp/qa_resp.json)"
-  # Public browse (no auth) lists it.
+  # Public browse (no auth) lists it. Response is {items, total, page}.
   local code2
-  code2="$("${CURL[@]}" "$API/scenarios?category=market")"
+  code2="$("${CURL[@]}" "$API/scenarios?category=market_crash")"
   assert_eq "$code2" "200" "browse scenarios"
-  assert_contains "$($J '[.[].title] | join(",")' /tmp/qa_resp.json)" "QA Scenario" "scenario listed publicly"
+  assert_contains "$($J '[.items[].title] | join(",")' /tmp/qa_resp.json)" "QA Scenario" "scenario listed publicly"
   # Public detail (no auth).
   local code3
   code3="$("${CURL[@]}" "$API/scenarios/$sc_id")"
   assert_eq "$code3" "200" "public scenario detail"
-  # Clone into a second workspace.
-  register_user "qa-b@forge.dev" "QA-pass-5678!" /tmp/qa_resp_b.json
-  local wid_b code4
+  # Clone into a second workspace. register_user_b sets ACCESS_B (B's token).
+  register_user_b
+  local wid_b code4 bp_cloned
   wid_b="$(curl -s "$API/workspaces" -H "Authorization: Bearer $ACCESS_B" | jq -r '.[0].id')"
   code4="$("${CURL[@]}" -X POST "$API/scenarios/$sc_id/clone" \
     -H "Authorization: Bearer $ACCESS_B" -H "X-Workspace-Id: $wid_b" -H 'Content-Type: application/json' -d '{}')"
   assert_eq "$code4" "201" "clone scenario"
-  assert_eq "$($J '.workspace_id' /tmp/qa_resp.json)" "$wid_b" "clone lands in B's workspace"
+  # Clone returns blueprint_id/blueprint_version_id — verify the blueprint now
+  # lives in B's workspace.
+  bp_cloned="$($J '.blueprint_id' /tmp/qa_resp.json)"
+  assert_eq "$(curl -s "$API/blueprints/$bp_cloned" -H "Authorization: Bearer $ACCESS_B" -H "X-Workspace-Id: $wid_b" | jq -r '.workspace_id')" "$wid_b" "clone lands in B's workspace"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
 # P2T011 — leaderboard contract: public, sorted, shape-checked
 # ────────────────────────────────────────────────────────────────────────────
 card_P2T011() {
-  local code
+  # Leaderboard shows PUBLIC completed MC runs. Publish the most recent
+  # completed MC run in A's workspace so there is at least one entry.
+  register_user "qa-a@forge.dev" "QA-pass-1234!" /tmp/qa_resp.json
+  local owner_wid run_id code
+  owner_wid="$(curl -s "$API/workspaces" -H "Authorization: Bearer $ACCESS" | jq -r '.[0].id')"
+  WID="$owner_wid"
+  run_id="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT id FROM simulation_runs WHERE mode='monte_carlo' AND status='completed' AND workspace_id='$WID' ORDER BY created_at DESC LIMIT 1" | tr -d ' \r\n')"
+  [[ -n "$run_id" ]] || { echo "no completed MC run to publish"; return 1; }
+  code="$("${CURL[@]}" -X PATCH "$API/simulations/$run_id" \
+    -H "Authorization: Bearer $ACCESS" -H "X-Workspace-Id: $WID" \
+    -H 'Content-Type: application/json' -d '{"is_public":true}')"
+  assert_eq "$code" "200" "publish run to leaderboard"
   code="$("${CURL[@]}" "$API/leaderboard")"
   assert_eq "$code" "200" "leaderboard public"
   # Contract: LeaderboardResponse is an object wrapping entries[].
-  assert "$J 'has(\"entries\")' /tmp/qa_resp.json == true" "entries key present"
+  assert_eq "$($J 'has("entries")' /tmp/qa_resp.json)" "true" "entries key present"
   local n
   n="$($J '.entries | length' /tmp/qa_resp.json)"
   if [[ "$n" -gt 1 ]]; then
-    assert "$J '.entries[0].resilience_score >= .entries[1].resilience_score' /tmp/qa_resp.json == true" "sorted desc"
+    assert_eq "$($J '.entries[0].resilience_score >= .entries[1].resilience_score' /tmp/qa_resp.json)" "true" "sorted desc"
   fi
-  assert "$J '[.entries[] | has(\"run_id\")] | all' /tmp/qa_resp.json == true" "entries have run_id"
+  assert_eq "$($J '[.entries[] | has("run_id")] | all' /tmp/qa_resp.json)" "true" "entries have run_id"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -435,7 +514,8 @@ card_P2T014() {
   [[ -n "$run_id" ]] || { echo "no baseline run; skipping WS replay (needs seed)"; return 1; }
   # Connect with the access token; expect snapshot then tick envelopes.
   local out
-  out="$(python3 - "$run_id" "$ACCESS" <<'PYEOF'
+  # websockets lives in the backend venv, not the system python.
+  out="$("$VENV_DIR/bin/python" - "$run_id" "$ACCESS" <<'PYEOF'
 import asyncio, json, sys
 try:
     import websockets
@@ -457,7 +537,7 @@ PYEOF
   assert_eq "$out" "WS-OK" "WS snapshot + tick replay"
   # Unauthorized token → close code 4401.
   local out2
-  out2="$(python3 - "$run_id" "bogus-token" <<'PYEOF'
+  out2="$("$VENV_DIR/bin/python" - "$run_id" "bogus-token" <<'PYEOF'
 import asyncio, sys
 try:
     import websockets

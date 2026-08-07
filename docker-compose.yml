@@ -27,7 +27,7 @@ services:
 
   backend:
     build: ./backend
-    env_file: .env
+    env_file: ${QA_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+asyncpg://forge:forge@db:5432/forge
       REDIS_URL: redis://redis:6379/0
@@ -44,7 +44,7 @@ services:
 
   worker:
     build: ./backend
-    env_file: .env
+    env_file: ${QA_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+asyncpg://forge:forge@db:5432/forge
       REDIS_URL: redis://redis:6379/0
@@ -59,12 +59,10 @@ services:
 
   frontend:
     build: ./frontend
+    # Serve the built SPA via nginx on :80 (same shape as production). The QA
+    # phases 3/6/7 expect the nginx-served dist on port 80, proxied to backend.
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev -- --host 0.0.0.0
+      - "80:80"
     depends_on:
       - backend
 

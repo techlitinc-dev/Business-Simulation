@@ -37,3 +37,6 @@ Thumbs.db
 # Report storage (generated PDFs)
 backend/var/
 backups/
+
+# QA run artifacts (timestamped results dirs, go/no-go JSON)
+tasks/qa/qa-results/

@@ -49,6 +49,10 @@ def _run_response(run: SimulationRun) -> dict[str, object]:
 async def simulation_ws(websocket: WebSocket, run_id: str) -> None:
     token = websocket.query_params.get("token", "")
     user_id = await _authorize(token)
+    # Accept first, then close with an app-level code: closing before accept()
+    # makes Starlette reject the handshake with HTTP 403, so the client would
+    # never observe the 4401/4403 close code the API contract promises.
+    await websocket.accept()
     if user_id is None:
         await websocket.close(code=4401)
         return
@@ -68,8 +72,6 @@ async def simulation_ws(websocket: WebSocket, run_id: str) -> None:
         if membership is None:
             await websocket.close(code=4403)
             return
-
-        await websocket.accept()
 
         # Snapshot envelope first.
         await websocket.send_text(

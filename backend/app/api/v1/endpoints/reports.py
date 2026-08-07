@@ -66,7 +66,9 @@ async def export_report(
 
     report.pdf_path = str(file_path)
     await db.commit()
-    return {"pdf_url": f"{settings.frontend_url}/reports/{filename}"}
+    # Serve from the backend's static /reports mount (frontend_url is the SPA
+    # origin; the SPA nginx doesn't host PDFs).
+    return {"pdf_url": f"/reports/{filename}"}
 
 
 @router.post("/simulations/{run_id}/report/share", status_code=201)

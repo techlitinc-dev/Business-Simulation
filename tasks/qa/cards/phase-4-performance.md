@@ -44,6 +44,11 @@ pre_phase4_clean() {
   wait_for_http "$BASE/health" "200" "60" "3"
   wait_for_http "$BASE/ready" "200" "60" "3"
   docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T backend python -m app.utils.seed >/dev/null 2>&1
+  # The throughput card (P4T004) fires 50 sequential runs on the demo
+  # workspace; bump it to enterprise (unlimited) so the plan cap never flakes
+  # the perf numbers (same convention as phases 2/3).
+  docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge \
+    -c "UPDATE workspaces SET plan_tier='enterprise' WHERE name='Demo Ventures';" >/dev/null 2>&1
   # Auth as the demo user (stable identity across the phase).
   local code
   code="$("${CURL[@]}" -X POST "$API/auth/login" \
@@ -234,12 +239,19 @@ card_P4T006() {
 # P4T007 — concurrency: 10 parallel baseline runs (no 5xx, p95 < 600ms)
 # ────────────────────────────────────────────────────────────────────────────
 card_P4T007() {
+  # 10 concurrent baseline runs. xargs substitutes {} as a positional arg so
+  # the arithmetic runs AFTER substitution (embedding $((3000+{})) in the -c
+  # string is evaluated before xargs replaces {}, which always errors).
+  # The API base, token, workspace and version are passed as $1..$4 (sh -c
+  # does not inherit the parent shell's non-exported variables).
   local out
-  out="$(seq 1 10 | xargs -P 10 -I{} sh -c \
-    "curl -s -o /dev/null -w '%{http_code} %{time_total}\n' -X POST '$API/simulations' \
-      -H 'Authorization: Bearer $PERF_ACCESS' -H 'X-Workspace-Id: $PERF_WID' \
-      -H 'Content-Type: application/json' \
-      -d '{\"blueprint_version_id\":\"$PERF_VER\",\"mode\":\"baseline\",\"seed\":$((3000+{})),\"config\":{\"months\":12}}'" )"
+  out="$(seq 1 10 | xargs -P 10 -I{} sh -c '
+    seed=$((3000 + $5))
+    curl -s -o /dev/null -w "%{http_code} %{time_total}\n" -X POST "$1/simulations" \
+      -H "Authorization: Bearer $2" -H "X-Workspace-Id: $3" \
+      -H "Content-Type: application/json" \
+      -d "{\"blueprint_version_id\":\"$4\",\"mode\":\"baseline\",\"seed\":$seed,\"config\":{\"months\":12}}"
+  ' sh "$API" "$PERF_ACCESS" "$PERF_WID" "$PERF_VER" '{}')"
   local codes times p95
   codes="$(printf '%s\n' "$out" | awk '{print $1}' | sort | uniq -c)"
   times="$(printf '%s\n' "$out" | awk '{print $2}' | sort -n)"
@@ -277,13 +289,14 @@ card_P4T008() {
 # P4T009 — resilience: burst over the rate limit yields 429 (not 5xx)
 # ────────────────────────────────────────────────────────────────────────────
 card_P4T009() {
-  # TESTING=false (env matrix) means the global limiter is live at 100/min.
-  # Fire 130 rapid requests; expect at least one 429 and zero 5xx.
-  local out
-  out="$(seq 1 130 | xargs -P 20 -I{} sh -c \
+  # TESTING=false (env matrix) means the global limiter is live. The burst
+  # must exceed the configured default limit (100/min in .env, 1000/min in
+  # .env.qa) — fire 1100 rapid requests; expect at least one 429 and zero 5xx.
+  local burst=1100 out
+  out="$(seq 1 "$burst" | xargs -P 20 -I{} sh -c \
     "curl -s -o /dev/null -w '%{http_code}\n' '$API/blueprints' \
       -H 'Authorization: Bearer $PERF_ACCESS' -H 'X-Workspace-Id: $PERF_WID'" | sort | uniq -c)"
-  echo "status distribution: $out"
+  echo "status distribution (burst=$burst): $out"
   local n429 n5xx
   n429="$(printf '%s\n' "$out" | awk '$2 == 429 {print $1}')"
   n5xx="$(printf '%s\n' "$out" | awk '$2 >= 500 {s+=$1} END {print s+0}')"
@@ -314,27 +327,42 @@ card_P4T010() {
 # ────────────────────────────────────────────────────────────────────────────
 card_P4T011() {
   local run_id out
-  run_id="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT id FROM simulation_runs WHERE mode='baseline' AND status='completed' ORDER BY created_at DESC LIMIT 1" | tr -d ' \r\n')"
-  [[ -n "$run_id" ]] || { echo "no baseline run; skip"; return 0; }
-  out="$(python3 - "$run_id" "$PERF_ACCESS" <<'PYEOF'
+  # The seeded SaaSFlow blueprint dies at month 12, so baseline runs end DEAD.
+  # Pick any completed run in the demo workspace (PERF_ACCESS's workspace);
+  # the seeded demo has one completed MC run.
+  run_id="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT id FROM simulation_runs WHERE status='completed' AND workspace_id='$PERF_WID' ORDER BY created_at DESC LIMIT 1" | tr -d ' \r\n')"
+  [[ -n "$run_id" ]] || { echo "no completed run; skip"; return 0; }
+  # websockets lives in the backend venv, not the system python (same fix as
+  # P2T014) — system python3 prints SKIP and always fails the assert.
+  local tick_count
+  tick_count="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT count(*) FROM tick_logs WHERE run_id='$run_id'" | tr -d ' \r\n')"
+  tick_count="${tick_count:-0}"
+  out="$("$VENV_DIR/bin/python" - "$run_id" "$PERF_ACCESS" "$tick_count" <<'PYEOF'
 import asyncio, json, sys, time
 try:
     import websockets
 except ImportError:
     print("SKIP"); raise SystemExit(0)
-run_id, token = sys.argv[1], sys.argv[2]
+run_id, token, tick_count = sys.argv[1], sys.argv[2], int(sys.argv[3])
 async def main():
     start = time.monotonic()
+    # Read the full replay: snapshot + all replayed ticks. The run is
+    # completed, so the server sends snapshot + N ticks then goes quiet —
+    # reading a fixed count avoids the websockets flow-control stall that a
+    # partial read hits (the final recv waits for the pubsub 1s poll, which
+    # always blows the 2s budget). wait_for wraps ONLY the first recv (a stall
+    # guard); the remaining recv()s are plain so they read the buffered replay
+    # instantly.
     async with websockets.connect(f"ws://localhost:8000/ws/simulations/{run_id}?token={token}") as ws:
-        count = 0
-        while count < 10:
-            msg = await asyncio.wait_for(ws.recv(), timeout=3)
+        msg = await asyncio.wait_for(ws.recv(), timeout=5)
+        assert json.loads(msg)["type"] == "snapshot"
+        count = 1
+        while count < tick_count + 1:
+            await ws.recv()
             count += 1
-            if count == 1:
-                assert json.loads(msg)["type"] == "snapshot"
     elapsed = (time.monotonic() - start) * 1000
     assert elapsed < 2000, f"WS too slow: {elapsed}ms"
-    print(f"WS-OK-{elapsed:.0f}ms")
+    print(f"WS-OK-{elapsed:.0f}ms ({count} envelopes)")
 asyncio.run(main())
 PYEOF
 )"

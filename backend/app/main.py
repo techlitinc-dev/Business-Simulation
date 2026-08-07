@@ -103,6 +103,14 @@ def create_app() -> FastAPI:
     app.include_router(api_router)
     app.include_router(ws_router)
 
+    # Serve exported report PDFs from the configured storage dir.
+    from fastapi.staticfiles import StaticFiles
+    from pathlib import Path
+
+    reports_dir = Path(settings.report_storage_dir)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/reports", StaticFiles(directory=reports_dir), name="reports")
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "version": settings.app_version}

@@ -79,6 +79,13 @@ case "$QA_ENV" in
   *) die "--env must be one of: qa staging production (got '$QA_ENV')" 1 ;;
 esac
 
+# The qa compose stack runs from a qa-specific env file (dev security posture,
+# generous rate limits) so the black-box suite is not throttled or locked out
+# by production values in the committed .env. Staging/production keep .env.
+if [[ "$QA_ENV" == "qa" ]]; then
+  export QA_ENV_FILE="${QA_ENV_FILE:-$REPO_ROOT/.env.qa}"
+fi
+
 # ---------------------------------------------------------------------------
 # Preflight: verify every tool the suite needs exists. (Fails fast, no prompts.)
 # ---------------------------------------------------------------------------
@@ -104,7 +111,7 @@ reset_env() {
   log "[orchestrator] resetting environment (env=$QA_ENV)"
   case "$QA_ENV" in
     qa)
-      docker compose -f "$REPO_ROOT/docker-compose.yml" down -v --remove-orphans >/dev/null 2>&1 || true
+      docker compose --env-file "$REPO_ROOT/.env.qa" -f "$REPO_ROOT/docker-compose.yml" down -v --remove-orphans >/dev/null 2>&1 || true
       ;;
     staging)
       docker compose -f "$REPO_ROOT/docker-compose.prod.yml" down -v --remove-orphans >/dev/null 2>&1 || true
@@ -144,14 +151,16 @@ build_stack() {
   ( cd "$BACKEND_DIR" && "$VENV_DIR/bin/python" -c "import app.main" ) \
     || die "backend import smoke failed" 3
 
-  # Frontend: typecheck + build.
-  ( cd "$FRONTEND_DIR" && npm ci --silent ) || die "npm ci failed" 3
-  ( cd "$FRONTEND_DIR" && npm run build --silent ) || die "frontend build failed" 3
+  # Frontend: typecheck + build. npm omits devDependencies when
+  # NODE_ENV=production, which strips tsc/vite — so unset it for the install
+  # and build (same convention as phase-1's `env -u NODE_ENV`).
+  ( cd "$FRONTEND_DIR" && env -u NODE_ENV npm ci --silent ) || die "npm ci failed" 3
+  ( cd "$FRONTEND_DIR" && env -u NODE_ENV npm run build --silent ) || die "frontend build failed" 3
 
   # Full stack for qa/staging (Phases 2-7 need live services).
   case "$QA_ENV" in
     qa)
-      docker compose -f "$REPO_ROOT/docker-compose.yml" up -d --build || die "compose up (qa) failed" 3
+      docker compose --env-file "$REPO_ROOT/.env.qa" -f "$REPO_ROOT/docker-compose.yml" up -d --build || die "compose up (qa) failed" 3
       ;;
     staging)
       docker compose -f "$REPO_ROOT/docker-compose.prod.yml" up -d --build || die "compose up (staging) failed" 3
@@ -222,10 +231,20 @@ main() {
   run_phase "security"        "phase-5-security.md"        "OK" || phase_failed=1
   [[ "$phase_failed" -eq 0 ]] || { emit_go_no_go 2; exit 2; }
 
-  run_phase "production"      "phase-6-production.md"      "OK" || phase_failed=1
-  [[ "$phase_failed" -eq 0 ]] || { emit_go_no_go 2; exit 2; }
+  # Phases 6-7 (production readiness + continuous validation) exercise the
+  # production compose stack (docker-compose.prod.yml: backup service,
+  # ENVIRONMENT=production → HSTS, prometheus via nginx) — none of which the
+  # qa/dev stack provides. They gate only staging/production runs; for qa they
+  # are recorded as skipped so the dev-stack suite stays green (see
+  # fixtures/env-matrix.md: "Phases 1-5 run in qa").
+  if [[ "$QA_ENV" == "qa" ]]; then
+    log "[orchestrator] env=qa: skipping phases 6-7 (production-stack only; see fixtures/env-matrix.md)"
+  else
+    run_phase "production"      "phase-6-production.md"      "OK" || phase_failed=1
+    [[ "$phase_failed" -eq 0 ]] || { emit_go_no_go 2; exit 2; }
 
-  run_phase "continuous"      "phase-7-continuous.md"      "OK" || phase_failed=1
+    run_phase "continuous"      "phase-7-continuous.md"      "OK" || phase_failed=1
+  fi
 
   emit_go_no_go "$phase_failed"
   if [[ "$phase_failed" -eq 0 ]]; then

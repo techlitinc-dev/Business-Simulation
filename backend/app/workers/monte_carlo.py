@@ -164,7 +164,7 @@ def run_one(
 
     for month in range(1, months + 1):
         # At a hurdle month: apply the template impact + chosen option.
-        if hurdle_months and month == hurdle_months[hurdle_index]:
+        if hurdle_index < len(hurdle_months) and month == hurdle_months[hurdle_index]:
             template = HURDLE_TEMPLATES[hurdle_index % len(HURDLE_TEMPLATES)]
             state = apply_event(
                 state, {"immediate": template["immediate"]}, month=month
@@ -334,8 +334,17 @@ def _run_coro(coro: Any) -> None:
 
 @_task("forge.monte_carlo")
 def run_monte_carlo(run_id: str) -> None:
-    """Celery task: load the run, execute the batch, persist the result."""
-    from app.db.session import async_session_factory
+    """Celery task: load the run, execute the batch, persist the result.
+
+    Each invocation builds its own engine: the module-level ``async_engine``
+    binds pooled connections to the first event loop that touches them, but the
+    worker runs every task on a fresh ``asyncio.run`` loop, so a shared engine
+    leaks connections across loops ("Future attached to a different loop").
+    Disposing per task keeps each loop's pool isolated.
+    """
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.core.config import get_settings
 
     async def _run() -> None:
         redis: Redis | None = None
@@ -345,56 +354,61 @@ def run_monte_carlo(run_id: str) -> None:
         except Exception:  # noqa: BLE001 - best-effort
             redis = None
 
-        async with async_session_factory() as session:
-            run = await session.get(SimulationRun, run_id)
-            if run is None:
-                logger.warning("monte carlo: run not found", run_id=run_id)
-                return
-            run.status = RunStatus.RUNNING
-            await session.commit()
-
-            from app.models.blueprint import BlueprintVersion
-            version = await session.get(BlueprintVersion, run.blueprint_version_id)
-            if version is None:
-                run.status = RunStatus.FAILED
-                run.result = {"error": "Blueprint version not found"}
+        engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+        async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with async_session_factory() as session:
+                run = await session.get(SimulationRun, run_id)
+                if run is None:
+                    logger.warning("monte carlo: run not found", run_id=run_id)
+                    return
+                run.status = RunStatus.RUNNING
                 await session.commit()
-                return
 
-            n_runs = int(run.config.get("n_runs", 100))
-            months = int(run.config.get("months", 24))
-            base_seed = run.seed
-            try:
-                result, cancelled = await run_monte_carlo_batch(
-                    blueprint_payload=dict(version.payload),
-                    base_seed=base_seed,
-                    n_runs=n_runs,
-                    months=months,
-                    run_id=run_id,
-                    redis=redis,
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.error("monte carlo batch failed", run_id=run_id, exc_info=True)
-                run.status = RunStatus.FAILED
-                run.result = {"error": str(exc)}
+                from app.models.blueprint import BlueprintVersion
+                version = await session.get(BlueprintVersion, run.blueprint_version_id)
+                if version is None:
+                    run.status = RunStatus.FAILED
+                    run.result = {"error": "Blueprint version not found"}
+                    await session.commit()
+                    return
+
+                n_runs = int(run.config.get("n_runs", 100))
+                months = int(run.config.get("months", 24))
+                base_seed = run.seed
+                try:
+                    result, cancelled = await run_monte_carlo_batch(
+                        blueprint_payload=dict(version.payload),
+                        base_seed=base_seed,
+                        n_runs=n_runs,
+                        months=months,
+                        run_id=run_id,
+                        redis=redis,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("monte carlo batch failed", run_id=run_id, exc_info=True)
+                    run.status = RunStatus.FAILED
+                    run.result = {"error": str(exc)}
+                    run.finished_at = datetime.now(UTC)
+                    await session.commit()
+                    return
+
+                if cancelled:
+                    run.status = RunStatus.CANCELLED
+                    run.result = {"cancelled": True, "completed_runs": len(result.runs_summary)}
+                else:
+                    run.status = RunStatus.COMPLETED
+                    run.result = result.model_dump(mode="json")
                 run.finished_at = datetime.now(UTC)
                 await session.commit()
-                return
 
-            if cancelled:
-                run.status = RunStatus.CANCELLED
-                run.result = {"cancelled": True, "completed_runs": len(result.runs_summary)}
-            else:
-                run.status = RunStatus.COMPLETED
-                run.result = result.model_dump(mode="json")
-            run.finished_at = datetime.now(UTC)
-            await session.commit()
+                await _publish(redis, run_id, "status", {"status": run.status})
+                if redis is not None:
+                    from contextlib import suppress
 
-            await _publish(redis, run_id, "status", {"status": run.status})
-            if redis is not None:
-                from contextlib import suppress
-
-                with suppress(Exception):
-                    await redis.close()
+                    with suppress(Exception):
+                        await redis.close()
+        finally:
+            await engine.dispose()
 
     _run_coro(_run())

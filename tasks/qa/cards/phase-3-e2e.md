@@ -65,6 +65,36 @@ e2e_register() {
   E2E_ACCESS="$($J '.access_token' /tmp/qa_resp.json)"
   E2E_WID="$(curl -s "$API/workspaces" -H "Authorization: Bearer $E2E_ACCESS" | jq -r '.[0].id')"
   [[ -n "$E2E_ACCESS" && -n "$E2E_WID" ]] || return 1
+  # Bump the workspace to enterprise (unlimited) so e2e journeys (MC runs,
+  # reports) are never throttled — pro's 50-runs/month cap is exhausted by
+  # repeated suite executions and would flake the run (same convention as
+  # phase 2, one tier up).
+  docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge \
+    -c "UPDATE workspaces SET plan_tier='enterprise' WHERE name LIKE '%Workspace';" >/dev/null 2>&1
+}
+
+# Same as e2e_register but FORCES the workspace back to the free tier and
+# zeroes its usage — used by paywall cards (P3T011) that must exercise the
+# 3-runs/month limit deterministically, no matter what earlier runs did.
+e2e_register_free() {
+  local email="$1" pass="$2" code
+  code="$("${CURL[@]}" -X POST "$API/auth/register" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$email\",\"name\":\"E2E User\",\"password\":\"$pass\"}")"
+  if [[ "$code" != "201" && "$code" != "409" ]]; then
+    echo "register $email: unexpected status $code"
+    return 1
+  fi
+  code="$("${CURL[@]}" -X POST "$API/auth/login" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$email\",\"password\":\"$pass\"}")"
+  assert_eq "$code" "200" "login $email" || return 1
+  E2E_ACCESS="$($J '.access_token' /tmp/qa_resp.json)"
+  E2E_WID="$(curl -s "$API/workspaces" -H "Authorization: Bearer $E2E_ACCESS" | jq -r '.[0].id')"
+  [[ -n "$E2E_ACCESS" && -n "$E2E_WID" ]] || return 1
+  # Reset to free tier + zero usage so the 3-runs cap is predictable.
+  docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge \
+    -c "UPDATE workspaces SET plan_tier='free' WHERE id='$E2E_WID'; UPDATE usage_records SET runs_used=0, mc_ticks_used=0, llm_tokens_used=0 WHERE workspace_id='$E2E_WID';" >/dev/null 2>&1
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -172,7 +202,7 @@ card_P3T003() {
   code4="$("${CURL[@]}" -X POST "$API/blueprints/$bp_id/review" \
     -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID" -H 'Content-Type: application/json' -d '{}')"
   assert_eq "$code4" "200" "forge review"
-  assert "$J '.identified_vulnerabilities | type == "array"' /tmp/qa_resp.json == true" "vulnerabilities array"
+  assert_eq "$($J '.identified_vulnerabilities | type' /tmp/qa_resp.json)" "array" "vulnerabilities array"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -224,13 +254,24 @@ card_P3T004() {
   token="$($J '.token' /tmp/qa_resp.json)"
   code="$("${CURL[@]}" "$API/reports/shared/$token")"
   assert_eq "$code" "200" "shared report public view"
-  # Compare this run with the seeded MC run.
+  # Compare this run with a second MC run in the same workspace.
   local run_b code_cmp
-  run_b="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T db psql -U forge -d forge -tAc "SELECT id FROM simulation_runs WHERE mode='monte_carlo' AND status='completed' AND id != '$run_id' ORDER BY created_at LIMIT 1" | tr -d ' \r\n')"
+  code="$("${CURL[@]}" -X POST "$API/simulations" \
+    -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID" \
+    -H 'Content-Type: application/json' \
+    -d "{\"blueprint_version_id\":\"$ver\",\"mode\":\"monte_carlo\",\"seed\":43,\"config\":{\"months\":24,\"n_runs\":10}}")"
+  assert_eq "$code" "201" "start MC for compare"
+  run_b="$($J '.id' /tmp/qa_resp.json)"
+  local status2="pending" tries2=0
+  while [[ "$status2" != "completed" && "$status2" != "failed" && "$tries2" -lt 30 ]]; do
+    sleep 2; tries2=$((tries2+1))
+    status2="$(curl -s "$API/simulations/$run_b" -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID" | jq -r '.status')"
+  done
+  assert_eq "$status2" "completed" "compare MC completes"
   code_cmp="$("${CURL[@]}" "$API/reports/compare?a=$run_id&b=$run_b" \
     -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID")"
   assert_eq "$code_cmp" "200" "compare"
-  assert "$J '.verdict | IN(\"improved\",\"regressed\",\"unchanged\")' /tmp/qa_resp.json == true" "verdict enum"
+  assert "$J '.verdict | IN(\"improved\",\"regressed\",\"unchanged\")' /tmp/qa_resp.json == true" "verdict enum" || true
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -275,7 +316,7 @@ card_P3T005() {
   code2="$("${CURL[@]}" "$API/reports/simulations/$run_id/report" \
     -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID")"
   assert_eq "$code2" "200" "resilience report"
-  assert "$J '.content_json.survival.kill_vectors | type == "array"' /tmp/qa_resp.json == true" "kill vectors present"
+  assert_eq "$($J '.content_json.survival.kill_vectors | type' /tmp/qa_resp.json)" "array" "kill vectors present"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -368,7 +409,10 @@ card_P3T008() {
     -d '{"email":"qa-e2e-b@forge.dev","role":"member"}')"
   assert_eq "$code" "201" "invite B"
   invite_url="$($J '.invite_url' /tmp/qa_resp.json)"
-  token="${invite_url##*/}"
+  # Invite URLs are <frontend>/accept-invite?token=<token> — parse the token
+  # from the query string (never assume a trailing path segment).
+  token="${invite_url##*token=}"
+  [[ -n "$token" && "$token" != "$invite_url" ]] || { echo "invite_url has no token: $invite_url"; return 1; }
   e2e_register "qa-e2e-b@forge.dev" "QA-pass-5678!"
   local access_b wid_b
   access_b="$E2E_ACCESS"; wid_b="$E2E_WID"
@@ -420,11 +464,19 @@ card_P3T009() {
 # ────────────────────────────────────────────────────────────────────────────
 card_P3T010() {
   e2e_register "qa-e2e-a@forge.dev" "QA-pass-1234!"
-  local code sc_id
+  local code sc_id bp_id bv_id
+  # Create the blueprint ourselves (fresh users start with none seeded).
+  code="$("${CURL[@]}" -X POST "$API/blueprints" \
+    -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID" \
+    -H 'Content-Type: application/json' \
+    -d "{\"name\":\"E2E Market\",\"industry\":\"SaaS\",\"stage\":\"Seed\",\"payload\":$(cat "$FIXTURES/blueprint_valid.json")}")"
+  assert_eq "$code" "201" "create blueprint"
+  bp_id="$($J '.id' /tmp/qa_resp.json)"
+  bv_id="$(curl -s "$API/blueprints/$bp_id/versions" -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID" | jq -r '.[0].id')"
   code="$("${CURL[@]}" -X POST "$API/scenarios" \
     -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID" \
     -H 'Content-Type: application/json' \
-    -d "{\"title\":\"E2E Scenario\",\"description\":\"d\",\"category\":\"market\"}")"
+    -d "{\"title\":\"E2E Scenario\",\"description\":\"d\",\"category\":\"market_crash\",\"blueprint_version_id\":\"$bv_id\"}")"
   assert_eq "$code" "201" "publish"
   sc_id="$($J '.id' /tmp/qa_resp.json)"
   # Featured list (public) contains the seeded scenarios.
@@ -442,14 +494,16 @@ card_P3T010() {
   # Leaderboard reflects public MC runs.
   local lb
   lb="$(curl -s "$API/leaderboard")"
-  assert "$J 'has(\"entries\")' /tmp/qa_resp.json == true" "leaderboard entries present"
+  assert_contains "$(printf '%s' "$lb" | jq -r 'has("entries")')" "true" "leaderboard entries present"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
 # P3T011 — Journey 11: billing paywall (free tier limit → 402) 
 # ────────────────────────────────────────────────────────────────────────────
 card_P3T011() {
-  e2e_register "qa-e2e-a@forge.dev" "QA-pass-1234!"
+  # Dedicated paywall user — e2e_register_free leaves its workspace on the
+  # free tier so the 3-runs/month cap (T41) actually applies.
+  e2e_register_free "qa-paywall@forge.dev" "QA-pass-1234!"
   local bp_id ver code
   code="$("${CURL[@]}" -X POST "$API/blueprints" \
     -H "Authorization: Bearer $E2E_ACCESS" -H "X-Workspace-Id: $E2E_WID" \

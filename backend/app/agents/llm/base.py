@@ -190,6 +190,36 @@ def _mock_ghost_decision(user: str) -> str:
     )
 
 
+def _mock_forge_review(user: str) -> str:
+    """Deterministic, schema-valid ForgeReviewLLMResponse (blueprint review).
+
+    The mock must emit a structurally valid review (overall_assessment +
+    identified_vulnerabilities with type/severity/description/suggestion) or
+    the structured-output bridge rejects it and the review endpoint 502s.
+    """
+    seed = _hash_seed(user)
+    types = ["liquidity", "concentration", "unit_economics", "market", "operational"]
+    severities = ["low", "medium", "high", "critical"]
+    vulnerabilities = [
+        {
+            "type": types[(seed + i) % len(types)],
+            "severity": severities[(seed >> 4 + i) % len(severities)],
+            "description": f"Structural weakness {i + 1} identified in the model.",
+            "mitigation_suggestion": f"Address weakness {i + 1} with a targeted countermeasure.",
+        }
+        for i in range(2)
+    ]
+    return json.dumps(
+        {
+            "overall_assessment": (
+                "Mock review: the model has a credible core but carries "
+                "meaningful structural risk that should be addressed."
+            ),
+            "identified_vulnerabilities": vulnerabilities,
+        }
+    )
+
+
 class MockProvider:
     """Deterministic provider for dev/test. Identical prompts -> identical output.
 
@@ -218,6 +248,8 @@ class MockProvider:
             return _mock_post_mortem(user)
         if "Choose the best strategic option" in user:
             return _mock_ghost_decision(user)
+        if "Review this business blueprint" in user:
+            return _mock_forge_review(user)
         return "{}"
 
     async def complete(

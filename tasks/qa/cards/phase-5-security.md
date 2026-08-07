@@ -57,12 +57,35 @@ pre_phase5_clean() {
   if [[ "$code" != "201" && "$code" != "409" ]]; then
     echo "FAIL: register qa-sec unexpected status $code"; return 1
   fi
-  code="$("${CURL[@]}" -X POST "$API/auth/login" \
-    -H 'Content-Type: application/json' \
-    -d '{"email":"qa-sec@forge.dev","password":"QA-sec-1234!"}')"
-  [[ "$code" == "200" ]] || return 1
+  # Login with retries — after the perf phase's load burst the backend can
+  # briefly return 429/5xx; a stale empty token then makes the workspaces jq
+  # below fail with a confusing "Cannot index object with number".
+  local attempt
+  code=""
+  for attempt in 1 2 3; do
+    code="$("${CURL[@]}" -X POST "$API/auth/login" \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"qa-sec@forge.dev","password":"QA-sec-1234!"}')"
+    [[ "$code" == "200" ]] && break
+    sleep 2
+  done
+  [[ "$code" == "200" ]] || { echo "FAIL: qa-sec login status $code"; return 1; }
   SEC_ACCESS="$($J '.access_token' /tmp/qa_resp.json)"
-  SEC_WID="$(curl -s "$API/workspaces" -H "Authorization: Bearer $SEC_ACCESS" | jq -r '.[0].id')"
+  # Phase 4's load burst (P4T009 fires 1100+ requests) can leave the global
+  # rate-limit window (1000/min per IP) nearly full, so a fresh /workspaces
+  # call 429s. Retry until the window drains (it's a rolling 60s window).
+  local ws_code attempt2
+  SEC_WID=""
+  for attempt2 in 1 2 3 4 5; do
+    ws_code="$(curl -s -o /tmp/qa_ws.json -w '%{http_code}' "$API/workspaces" \
+      -H "Authorization: Bearer $SEC_ACCESS")"
+    if [[ "$ws_code" == "200" ]]; then
+      SEC_WID="$(jq -r '.[0].id // empty' /tmp/qa_ws.json)"
+      break
+    fi
+    echo "  retry workspaces (status=$ws_code)"
+    sleep 15
+  done
   [[ -n "$SEC_ACCESS" && -n "$SEC_WID" ]] || return 1
 }
 
@@ -170,15 +193,25 @@ card_P5T003() {
 # P5T004 — rate limit: auth route (10/min) + global (100/min) → 429
 # ────────────────────────────────────────────────────────────────────────────
 card_P5T004() {
-  # Login attempts exceed RATE_LIMIT_AUTH=10/min → 429 on the 11th.
-  local code i got429=0
-  for i in $(seq 1 14); do
+  # Login attempts exceed RATE_LIMIT_AUTH (10/min in .env, 300/min in .env.qa)
+  # → expect a 429 before the burst ends. Fire limit+10 attempts; the limit is
+  # read from the backend settings so the card works in every env matrix.
+  local code i got429=0 rl
+  rl="$(docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T backend python -c "from app.core.config import get_settings; print(get_settings().rate_limit_auth)" 2>/dev/null | tr -d '\r')"
+  rl="${rl%%/*}"
+  rl="${rl:-10}"
+  for i in $(seq 1 $((rl + 10))); do
     code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/auth/login" \
       -H 'Content-Type: application/json' \
       -d "{\"email\":\"qa-sec@forge.dev\",\"password\":\"wrong-$i\"}")"
     if [[ "$code" == "429" ]]; then got429=1; break; fi
   done
   assert_eq "$got429" "1" "auth rate limit triggers 429"
+  # The burst filled the {ip}|rpm rate-limit window (auth and register share
+  # the same rpm key). Drain the 60s window so the next card's register/login
+  # (P5T005) is not itself 429ed.
+  echo "PASS: waiting 61s for rate-limit window to drain"
+  sleep 61
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -205,12 +238,28 @@ card_P5T005() {
   name="$(curl -s "$API/users/me" -H "Authorization: Bearer $access" | jq -r '.name')"
   assert_eq "$name" "<script>alert(1)</script>" "name round-trips (server does not sanitize by design)"
   # Scenario title with HTML must not be rendered executable: verify JSON content-type.
-  local w code2 ct
+  local w code2 bp_id bv_id
   w="$(curl -s "$API/workspaces" -H "Authorization: Bearer $access" | jq -r '.[0].id')"
+  bp_id="$(curl -s "$API/blueprints" -H "Authorization: Bearer $access" -H "X-Workspace-Id: $w" | jq -r '.[0].id // empty')"
+  bv_id=""
+  if [[ -n "$bp_id" ]]; then
+    bv_id="$(curl -s "$API/blueprints/$bp_id/versions" -H "Authorization: Bearer $access" -H "X-Workspace-Id: $w" | jq -r '.[0].id // empty')"
+  fi
+  if [[ -z "$bv_id" ]]; then
+    # Fresh user has no blueprints — create one so the scenario has a valid
+    # blueprint_version_id (ScenarioCreate requires it).
+    code2="$("${CURL[@]}" -X POST "$API/blueprints" \
+      -H "Authorization: Bearer $access" -H "X-Workspace-Id: $w" \
+      -H 'Content-Type: application/json' \
+      -d "{\"name\":\"SecBP\",\"industry\":\"SaaS\",\"stage\":\"Seed\",\"payload\":$(cat "$FIXTURES/blueprint_valid.json")}")"
+    assert_eq "$code2" "201" "create blueprint for scenario" || return 1
+    bp_id="$($J '.id' /tmp/qa_resp.json)"
+    bv_id="$(curl -s "$API/blueprints/$bp_id/versions" -H "Authorization: Bearer $access" -H "X-Workspace-Id: $w" | jq -r '.[0].id')"
+  fi
   code2="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/scenarios" \
     -H "Authorization: Bearer $access" -H "X-Workspace-Id: $w" \
     -H 'Content-Type: application/json' \
-    -d '{"title":"<img src=x onerror=alert(1)>","description":"d","category":"market"}')"
+    -d "{\"title\":\"<img src=x onerror=alert(1)>\",\"description\":\"d\",\"category\":\"market_crash\",\"blueprint_version_id\":\"$bv_id\"}")"
   assert_eq "$code2" "201" "html title stored as data"
 }
 
@@ -356,7 +405,7 @@ card_P5T010() {
     "UPDATE users SET is_admin=true WHERE email='qa-sec@forge.dev'" >/dev/null 2>&1
   local rows
   rows="$(curl -s "$API/admin/audit-log?limit=20" \
-    -H "Authorization: Bearer $SEC_ACCESS" | jq -r '[.[] | select(.path | contains("/blueprints"))] | length')"
+    -H "Authorization: Bearer $SEC_ACCESS" | jq -r '[.items[] | select(.path | contains("/blueprints"))] | length')"
   if [[ "$rows" -ge 1 ]]; then
     echo "PASS: audit log has blueprint mutations (n=$rows)"
   else
@@ -394,7 +443,7 @@ card_P5T012() {
   code="$("${CURL[@]}" -X POST "$API/api-keys" \
     -H "Authorization: Bearer $SEC_ACCESS" -H "X-Workspace-Id: $SEC_WID" \
     -H 'Content-Type: application/json' \
-    -d '{"name":"sec-key","scopes":["simulations:read"],"rate_limit_rpm":10}')"
+    -d '{"name":"sec-key","scopes":["runs:read"],"rate_limit_rpm":10}')"
   assert_eq "$code" "201" "create scoped key"
   key="$($J '.key // .api_key // empty' /tmp/qa_resp.json)"
   wid="$SEC_WID"
