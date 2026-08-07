@@ -1,0 +1,37 @@
+{
+  "blueprint_version": "1.0",
+  "business_profile": {"model_type": "SaaS", "stage": "Seed", "industry": "B2B SaaS", "geography": "Global"},
+  "revenue_engine": {
+    "streams": [
+      {
+        "name": "Core SaaS",
+        "pricing_model": "Subscription",
+        "price_point": 99,
+        "projected_customers_month_12": 1500,
+        "ltv": 2400,
+        "cac": 850,
+        "churn_monthly": 0.05
+      }
+    ]
+  },
+  "cost_structure": {
+    "fixed_monthly": 50000,
+    "variable_per_unit": 12,
+    "team": [
+      {"role": "CEO/Founder", "salary_annual": 80000, "hire_month": 0},
+      {"role": "Engineer", "salary_annual": 120000, "hire_month": 3}
+    ],
+    "burn_rate_month_1": 60000
+  },
+  "financials": {
+    "starting_capital": 380000,
+    "funding_rounds": [],
+    "target_runway_months": 18
+  },
+  "identified_vulnerabilities": [],
+  "simulation_parameters": {
+    "time_step": "monthly",
+    "monte_carlo_runs": 100,
+    "random_seed": null
+  }
+}
