@@ -418,3 +418,19 @@ replaced with the shared one for consistency).
 
 - `npm run build` passes; frontend tests 36/36 pass; lint clean (0 errors)
 - Deployed to live server; bundle `index-B7AiAcJY.js` contains the fix
+
+## Follow-up — user still saw the old bundle
+
+The user re-reported the exact same stack trace, but it references
+`index-djqBugVO.js` — the **previous** bundle. Verified on the live server:
+
+- `GET /` now serves `index-B7AiAcJY.js` (the fixed bundle)
+- `GET /assets/index-djqBugVO.js` → **404** (old bundle removed from the server)
+- The new bundle contains the `execCommand` fallback, and the only
+  `clipboard.writeText` reference is inside the guarded
+  `if (navigator.clipboard?.writeText)` check
+
+**Conclusion:** no further code change is needed. The reported error came from
+the browser's cached copy of the old bundle. The HTML is served with
+`Cache-Control: no-cache`, so a **hard refresh** (Ctrl+Shift+R) or clearing
+site data loads the fixed bundle and the error disappears.
