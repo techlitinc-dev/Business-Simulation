@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { copyToClipboard } from '@/lib/utils'
 import { useExportPdf, useReport, useShareReport } from '@/features/reports/hooks'
 import type { ReportOut } from '@/features/reports/hooks'
 
@@ -191,25 +192,7 @@ export default function ReportPage() {
   const handleShare = () => {
     share.mutate(undefined, {
       onSuccess: (data) => {
-        const url = data.share_url
-        const fallbackCopy = () => {
-          const ta = document.createElement('textarea')
-          ta.value = url
-          ta.style.position = 'fixed'
-          ta.style.opacity = '0'
-          document.body.appendChild(ta)
-          ta.select()
-          try {
-            document.execCommand('copy')
-          } finally {
-            document.body.removeChild(ta)
-          }
-        }
-        if (navigator.clipboard?.writeText) {
-          navigator.clipboard.writeText(url).catch(fallbackCopy)
-        } else {
-          fallbackCopy()
-        }
+        void copyToClipboard(data.share_url)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       },

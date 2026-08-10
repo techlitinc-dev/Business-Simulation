@@ -371,3 +371,50 @@ blueprint is created with the seeded minimal-valid payload.
 - `npm run build` passes; frontend tests 36/36 pass
 - Deployed to live server; bundle `index-djqBugVO.js` contains the fix
 - `POST /api/v1/blueprints` with the seeded payload returns 201
+
+---
+
+# Round 6 — Clipboard crash: `navigator.clipboard.writeText` is not a function
+
+Date: 2026-08-10
+
+## Problem
+
+Uncaught TypeError: `Cannot read properties of undefined (reading 'writeText')`
+in the deployed bundle (`index-djqBugVO.js`). The stack pointed at a copy
+button handler.
+
+## Root cause
+
+`navigator.clipboard` is **only available on secure origins (HTTPS)**. The app
+is served over plain HTTP, so `navigator.clipboard` is `undefined` and any
+direct `.writeText()` call throws. Three places called it unguarded:
+
+- `frontend/src/features/settings/MembersPage.tsx` — copy invite link
+- `frontend/src/features/settings/ApiKeysPanel.tsx` — copy API key
+- `frontend/src/features/reports/ReportPage.tsx` — copy share link
+  (this one already had an inline fallback, but the other two did not)
+
+## Fix
+
+Added a shared `copyToClipboard(text)` helper in
+`frontend/src/lib/utils.ts` that:
+
+1. Uses `navigator.clipboard.writeText` when available (with try/catch)
+2. Falls back to a hidden `<textarea>` + `document.execCommand('copy')`
+   on insecure origins
+
+All three call sites now use the helper (the ReportPage's inline fallback was
+replaced with the shared one for consistency).
+
+## Files changed
+
+- `frontend/src/lib/utils.ts` — new `copyToClipboard()` helper
+- `frontend/src/features/settings/MembersPage.tsx` — use helper
+- `frontend/src/features/settings/ApiKeysPanel.tsx` — use helper
+- `frontend/src/features/reports/ReportPage.tsx` — use helper
+
+## Verification
+
+- `npm run build` passes; frontend tests 36/36 pass; lint clean (0 errors)
+- Deployed to live server; bundle `index-B7AiAcJY.js` contains the fix

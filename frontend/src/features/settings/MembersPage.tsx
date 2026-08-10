@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/table'
 import { useAuthStore } from '@/stores/auth-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
+import { copyToClipboard } from '@/lib/utils'
 import {
   useCreateInvite,
   useMembers,
@@ -86,7 +87,7 @@ export default function MembersPage() {
 
   const copyInviteUrl = () => {
     if (!inviteUrl) return
-    void navigator.clipboard.writeText(inviteUrl)
+    void copyToClipboard(inviteUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }

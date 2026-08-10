@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { copyToClipboard } from '@/lib/utils'
 import { useApiKeys, useCreateApiKey, useRevokeApiKey } from './api-keys'
 
 const SCOPE_OPTIONS = [
@@ -76,7 +77,7 @@ export default function ApiKeysPanel() {
 
   const copyKey = () => {
     if (!newKey) return
-    void navigator.clipboard.writeText(newKey)
+    void copyToClipboard(newKey)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
