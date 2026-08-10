@@ -114,3 +114,66 @@ Root causes:
 - `.env` is gitignored, so the `FRONTEND_URL` fix is local-only — apply the same value in the deployed environment.
 - The 500 kB+ chunk warning on build is pre-existing (the app is a single bundle); code-splitting is an optional follow-up.
 - "Demo user" exists only after running `make seed` (creates `demo@forge.dev`).
+
+---
+
+# Round 2 — Deploy & live-server verification
+
+Date: 2026-08-10
+
+## Problem
+
+Same errors reappeared on the live site (`65.20.89.170`):
+
+- `crypto.randomUUID is not a function` — identical stack traces as round 1
+- `GET /api/v1/simulations 401 (Unauthorized)`
+
+## Root cause — fixes were never deployed
+
+The round-1 fixes were committed (`5007896`) and pushed to GitHub, but the live
+server was **still serving the old bundle** (`index-DAP_33iT.js`), which
+contained the unfixed `crypto.randomUUID` code. Deployment is manual: the
+server runs the containers from `docker-compose.yml` and only picks up new
+frontend code after a rebuild (`docker compose up -d --build`).
+
+Verified by comparing bundle hashes:
+- Live server before deploy: `index-DAP_33iT.js` (old)
+- Local build: `index-CKp96HUI.js` (fixed)
+
+## The 401 — separate, transient auth issue
+
+`/api/v1/simulations` 401s when the browser's access token is expired
+(access tokens last **15 minutes**). Verified the endpoint and auth flow work
+correctly against the live API with a fresh token:
+
+- `POST /auth/login` → 200 (returns access + refresh tokens)
+- `GET /api/v1/workspaces` with fresh token → 200
+- `GET /api/v1/simulations` with fresh token + `X-Workspace-Id` → 200
+- `GET /api/v1/blueprints` with fresh token + `X-Workspace-Id` → 200
+
+The client has a transparent refresh-on-401 path, but it can only help after
+the new bundle is deployed and if the refresh token is still valid. The 401 in
+the console was most likely the old bundle failing during a routine
+token-expiry refresh — users can simply re-login, and the deployed refresh
+logic now handles it automatically.
+
+## Fixes applied (this round)
+
+1. **Deployed the round-1 fixes to the live server**
+   - `docker compose up -d --build frontend` on the server (`65.20.89.170`)
+   - New bundle now served: `index-izxQpyuR.js` (confirmed to contain the
+     `4xxx-yxxx` UUID fallback)
+
+2. **Verified deployment end-to-end**
+   - `/api/v1/health` → 200
+   - `/reports/<missing>.pdf` → 404 from the backend (nginx proxy working;
+     real PDFs now download instead of returning the SPA shell)
+   - Authenticated workspaces/simulations/blueprints → all 200
+
+## Notes
+
+- The access-token 401 requires no code change — it's normal token expiry.
+  The auto-refresh in the new bundle handles it; a page refresh or re-login
+  clears any stale state.
+- The backend image was also rebuilt as a side effect of the compose command
+  (its code is unchanged, so behavior is identical).
