@@ -15,7 +15,7 @@ interface BurnChartProps {
   ticks: TickLog[]
 }
 
-/** MRR as line + burn as bars over months. */
+/** MRR as line + burn as bars over months, on a distinct chart surface. */
 export default function BurnChart({ ticks }: BurnChartProps) {
   const data = ticks.map((t) => ({
     month: t.month,
@@ -24,24 +24,31 @@ export default function BurnChart({ ticks }: BurnChartProps) {
   }))
 
   return (
-    <div className="h-72 w-full">
+    <div
+      className="h-72 w-full rounded-lg border border-border"
+      style={{ background: 'hsl(var(--chart-surface))' }}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="hsl(var(--chart-grid))"
+          />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
           />
           <YAxis
-            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
             tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
             width={64}
           />
           <Tooltip
             contentStyle={{
-              background: 'var(--background)',
-              border: '1px solid var(--border)',
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
               borderRadius: 8,
+              color: 'hsl(var(--chart-text))',
             }}
             formatter={(value, name) => [
               `$${Number(value ?? 0).toLocaleString()}`,

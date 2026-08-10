@@ -4,6 +4,7 @@ import { Copy, GitFork } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAuthStore } from '@/stores/auth-store'
 import type { ScenarioSummary } from './api'
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -21,6 +22,11 @@ interface ScenarioCardProps {
 }
 
 export default function ScenarioCard({ scenario, onClone }: ScenarioCardProps) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const detailPath = isAuthenticated
+    ? `/app/marketplace/${scenario.id}`
+    : `/marketplace/${scenario.id}`
+
   return (
     <Card className="flex h-full flex-col transition-colors hover:border-primary/50">
       <CardHeader>
@@ -46,7 +52,7 @@ export default function ScenarioCard({ scenario, onClone }: ScenarioCardProps) {
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/marketplace/${scenario.id}`}>View</Link>
+              <Link to={detailPath}>View</Link>
             </Button>
             {onClone && (
               <Button size="sm" onClick={() => onClone(scenario.id)}>

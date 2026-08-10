@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -32,15 +34,32 @@ interface NumberInputProps {
   step?: number
 }
 
+/**
+ * Number input that keeps a local string state so users can clear the field
+ * and type a fresh value — the old behavior coerced '' to 0 on every change,
+ * which made intermediate typing impossible.
+ */
 export function NumberInput({ value, onChange, placeholder, min = 0, step }: NumberInputProps) {
+  const [text, setText] = useState<string>(Number.isFinite(value) ? String(value) : '')
+
+  useEffect(() => {
+    setText(Number.isFinite(value) ? String(value) : '')
+  }, [value])
+
   return (
     <Input
       type="number"
       min={min}
       step={step}
       placeholder={placeholder}
-      value={Number.isFinite(value) ? value : ''}
-      onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value
+        setText(raw)
+        if (raw !== '' && Number.isFinite(Number(raw))) {
+          onChange(Number(raw))
+        }
+      }}
     />
   )
 }

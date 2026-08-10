@@ -13,10 +13,12 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { apiFetch } from '@/lib/api-client'
 import { useRegister } from './hooks'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
+  const [company, setCompany] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const navigate = useNavigate()
@@ -24,9 +26,32 @@ export default function RegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    register.mutate({ email, name, password }, {
-      onSuccess: () => navigate('/login', { replace: true }),
-    })
+    register.mutate(
+      { email, name, password },
+      {
+        onSuccess: async () => {
+          // The backend auto-creates a personal workspace on signup; rename it
+          // to the company name the founder typed here (if any).
+          if (company.trim()) {
+            try {
+              const workspaces = await apiFetch<{ id: string; name: string }[]>(
+                '/api/v1/workspaces',
+              )
+              const personal = workspaces[0]
+              if (personal) {
+                await apiFetch(`/api/v1/workspaces/${personal.id}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify({ name: company.trim() }),
+                })
+              }
+            } catch {
+              // Renaming the workspace is best-effort; never block signup on it.
+            }
+          }
+          navigate('/login', { replace: true })
+        },
+      },
+    )
   }
 
   return (
@@ -40,13 +65,22 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Founder name</Label>
               <Input
                 id="name"
                 required
                 placeholder="Ada Lovelace"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company">Company name</Label>
+              <Input
+                id="company"
+                placeholder="Acme Inc."
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
               />
             </div>
             <div className="space-y-2">

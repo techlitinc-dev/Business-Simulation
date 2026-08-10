@@ -3,6 +3,19 @@ import { persist } from 'zustand/middleware'
 
 export type NotificationKind = 'info' | 'success' | 'warning' | 'error'
 
+/** crypto.randomUUID is only available on secure origins (HTTPS); fall back
+ *  to a Math.random-based UUID for plain-HTTP local/dev deploys. */
+function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
 export interface NotificationEntry {
   id: string
   title: string
@@ -31,7 +44,7 @@ export const useNotificationsStore = create<NotificationsState>()(
       addNotification: (n) => {
         const entry: NotificationEntry = {
           ...n,
-          id: crypto.randomUUID(),
+          id: newId(),
           created_at: new Date().toISOString(),
           read: false,
         }

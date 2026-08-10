@@ -191,7 +191,25 @@ export default function ReportPage() {
   const handleShare = () => {
     share.mutate(undefined, {
       onSuccess: (data) => {
-        navigator.clipboard.writeText(data.share_url).catch(() => {})
+        const url = data.share_url
+        const fallbackCopy = () => {
+          const ta = document.createElement('textarea')
+          ta.value = url
+          ta.style.position = 'fixed'
+          ta.style.opacity = '0'
+          document.body.appendChild(ta)
+          ta.select()
+          try {
+            document.execCommand('copy')
+          } finally {
+            document.body.removeChild(ta)
+          }
+        }
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(url).catch(fallbackCopy)
+        } else {
+          fallbackCopy()
+        }
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       },

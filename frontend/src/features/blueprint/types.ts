@@ -97,7 +97,14 @@ export function emptyBlueprintPayload(): BlueprintPayload {
 /** Options for the wizard's select inputs (spec §9 Phase 2). */
 export const MODEL_TYPES = ['SaaS', 'D2C', 'Retail', 'Restaurant', 'Fintech', 'Other']
 export const STAGES = ['Idea', 'MVP', 'Pre-Seed', 'Seed', 'Series A+']
-export const GEOGRAPHIES = ['North America', 'Europe', 'Asia-Pacific', 'Latin America', 'Global']
+export const GEOGRAPHIES = [
+  'North America',
+  'Europe',
+  'Asia-Pacific',
+  'India',
+  'Latin America',
+  'Global',
+]
 export const PRICING_MODELS = ['Subscription', 'One-time', 'Usage-based', 'Freemium', 'Marketplace']
 
 export interface ValidationIssue {

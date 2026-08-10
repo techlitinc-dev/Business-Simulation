@@ -16,6 +16,7 @@ import PricingPage from '@/features/marketing/PricingPage'
 import MarketplacePage from '@/features/marketplace/MarketplacePage'
 import ScenarioDetailPage from '@/features/marketplace/ScenarioDetailPage'
 import LeaderboardPage from '@/features/leaderboard/LeaderboardPage'
+import BillingPage from '@/features/billing/BillingPage'
 import MembersPage from '@/features/settings/MembersPage'
 import ProfilePage from '@/features/settings/ProfilePage'
 import SecurityPage from '@/features/settings/SecurityPage'
@@ -138,6 +139,26 @@ export const router = createBrowserRouter([
               {
                 path: 'reports/compare',
                 element: <CompareRoute />,
+              },
+              {
+                path: 'ghost',
+                element: <GhostSetupPage />,
+              },
+              {
+                path: 'marketplace',
+                element: <MarketplacePage />,
+              },
+              {
+                path: 'marketplace/:scenarioId',
+                element: <ScenarioDetailPage />,
+              },
+              {
+                path: 'leaderboard',
+                element: <LeaderboardPage />,
+              },
+              {
+                path: 'billing',
+                element: <BillingPage />,
               },
               {
                 path: 'settings',

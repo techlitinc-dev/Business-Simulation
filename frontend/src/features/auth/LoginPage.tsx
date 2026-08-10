@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Flame } from 'lucide-react'
+import { Flame, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +14,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useLogin } from './hooks'
+
+const DEMO_EMAIL = 'demo@forge.dev'
+const DEMO_PASSWORD = 'demo-password-123'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -29,6 +32,13 @@ export default function LoginPage() {
     e.preventDefault()
     login.mutate(
       { email, password },
+      { onSuccess: () => navigate(from, { replace: true }) },
+    )
+  }
+
+  const handleDemo = () => {
+    login.mutate(
+      { email: DEMO_EMAIL, password: DEMO_PASSWORD },
       { onSuccess: () => navigate(from, { replace: true }) },
     )
   }
@@ -74,6 +84,15 @@ export default function LoginPage() {
           <CardFooter className="flex-col gap-3">
             <Button type="submit" className="w-full" disabled={login.isPending}>
               {login.isPending ? 'Logging in…' : 'Log in'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2"
+              onClick={handleDemo}
+              disabled={login.isPending}
+            >
+              <Sparkles className="h-4 w-4" /> Try the demo account
             </Button>
             <p className="text-sm text-muted-foreground">
               No account?{' '}

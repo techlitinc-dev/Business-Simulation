@@ -1,4 +1,5 @@
 import { ChevronDown, CircleUserRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth-store'
@@ -18,7 +19,12 @@ export default function Topbar() {
           {active?.name ?? 'Workspace'}
         </span>
         <span className="text-muted-foreground/50">/</span>
-        <span className="text-muted-foreground">War Room</span>
+        <Link
+          to="/app/simulations"
+          className="text-muted-foreground transition-colors hover:text-foreground hover:underline"
+        >
+          War Room
+        </Link>
       </div>
       <div className="flex items-center gap-3">
         <NotificationBell />

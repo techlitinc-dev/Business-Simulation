@@ -15,7 +15,7 @@ interface CashCurveProps {
   ticks: TickLog[]
 }
 
-/** Cash curve — cash_balance over months using the chart-1 token. */
+/** Cash curve — cash_balance over months on a distinct chart surface. */
 export default function CashCurve({ ticks }: CashCurveProps) {
   const data = ticks.map((t) => ({
     month: t.month,
@@ -23,7 +23,10 @@ export default function CashCurve({ ticks }: CashCurveProps) {
   }))
 
   return (
-    <div className="h-72 w-full">
+    <div
+      className="h-72 w-full rounded-lg border border-border"
+      style={{ background: 'hsl(var(--chart-surface))' }}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
           <defs>
@@ -32,29 +35,42 @@ export default function CashCurve({ ticks }: CashCurveProps) {
               <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="hsl(var(--chart-grid))"
+          />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-            label={{ value: 'Month', position: 'insideBottom', offset: -4 }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
+            label={{
+              value: 'Month',
+              position: 'insideBottom',
+              offset: -4,
+              fill: 'hsl(var(--chart-text))',
+            }}
           />
           <YAxis
-            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
             tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
             width={64}
           />
           <Tooltip
             contentStyle={{
-              background: 'var(--background)',
-              border: '1px solid var(--border)',
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
               borderRadius: 8,
+              color: 'hsl(var(--chart-text))',
             }}
             formatter={(value) => [
               `$${Number(value ?? 0).toLocaleString()}`,
               'Cash balance',
             ]}
           />
-          <ReferenceLine y={0} stroke="var(--destructive)" strokeDasharray="4 4" />
+          <ReferenceLine
+            y={0}
+            stroke="hsl(var(--destructive))"
+            strokeDasharray="4 4"
+          />
           <Area
             type="monotone"
             dataKey="cash_balance"

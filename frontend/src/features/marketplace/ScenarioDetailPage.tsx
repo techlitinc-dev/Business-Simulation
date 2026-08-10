@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Copy, GitFork } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
@@ -16,6 +16,7 @@ export default function ScenarioDetailPage() {
   const clone = useCloneScenario()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const navigate = useNavigate()
+  const backPath = isAuthenticated ? '/app/marketplace' : '/marketplace'
 
   const handleClone = () => {
     if (!scenarioId) return
@@ -44,9 +45,9 @@ export default function ScenarioDetailPage() {
   return (
     <div className="space-y-6">
       <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <a href="/marketplace">
+        <Link to={backPath}>
           <ArrowLeft className="h-4 w-4" /> Back to marketplace
-        </a>
+        </Link>
       </Button>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
