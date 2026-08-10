@@ -177,3 +177,83 @@ logic now handles it automatically.
   clears any stale state.
 - The backend image was also rebuilt as a side effect of the compose command
   (its code is unchanged, so behavior is identical).
+
+---
+
+# Round 3 — Ghost chart colors, demo seed data, stale-cache fix
+
+Date: 2026-08-10
+
+## Problems reported
+
+1. **Ghost run: graph values shown in black** — on the ghost spectator page's
+   cash-curve chart the axis values rendered near-black on the light surface.
+2. `POST /api/v1/simulations` → **404 (Not Found)** — reported mid-session.
+3. `POST /api/v1/users/me/password` → **400 (Bad Request)** + `crypto.randomUUID`
+   crash on `index-DAP_33iT.js` (old bundle).
+4. "Simulation not run" — no simulation would start.
+
+## Root causes & fixes
+
+### 1. Graph values in black → changed chart text color
+
+`--chart-text` was `222 47% 11%` (near-black) on a light surface — exactly the
+"values shown in black" the user saw. Split the tokens into two tones:
+
+- `--chart-text` (values/tooltip): mid slate `215 25% 27%` — readable, not black
+- `--chart-axis` (axis labels / month label / $k ticks): muted `24 8% 45%`
+
+Updated `CashCurve.tsx` and `BurnChart.tsx` to use `--chart-axis` for ticks and
+`--chart-text` for tooltip values. Both dark and light variants updated.
+
+### 2. Demo account could not log in → seed data was lost/stale
+
+Investigation found:
+- The demo user existed in the DB, but its stored password hash did **not**
+  match `demo-password-123` (the seed script is check-then-insert, so it never
+  resets an existing user's password).
+- The `demo-ventures` workspace had **no blueprints or runs** — the seed data
+  was missing, so there was nothing to simulate ("simulation not run").
+
+Fixes (on the server):
+- Reset the demo user's password hash to `demo-password-123`.
+- Ran `python -m app.utils.seed` (idempotent) → created the 3 demo blueprints
+  (SaaSFlow, BrewBox, ConsultPro) and a completed Monte Carlo run in the demo
+  workspace.
+- Verified end-to-end: demo login 200, blueprints 200, a ghost-mode simulation
+  POST returns 201.
+
+### 3. POST /simulations 404 → transient during deploy
+
+Backend logs show the 404 happened **during the container recreate** (the
+previous deploy). Later POSTs returned 201 and 402 (plan limit). With the
+seed restored, ghost-mode POST now returns 201. No code change needed.
+
+### 4. Password change 400 → correct behavior
+
+`POST /users/me/password` returns 400 "Current password is incorrect" when the
+current password doesn't match — that is intended. The accompanying
+`crypto.randomUUID` crash was from the stale cached bundle (see below).
+
+### 5. Stale bundle (`index-DAP_33iT.js`) → nginx cache headers
+
+The server was serving the new bundle, but the user's browser kept the old one
+because nginx sent no `Cache-Control` on `index.html`. Fix:
+
+- `location /` → `Cache-Control: no-cache` (always refetch the HTML, which
+  points at the new hashed bundle)
+- `location /assets/` → `Cache-Control: public, immutable` + 1y expiry
+  (hashed files are safe to cache forever)
+
+Deployed bundle is now `index-DSVBfvlp.js`; verified the HTML is `no-cache`
+and assets are `immutable`. Users must hard-refresh **once** to drop the old
+bundle, then future deploys propagate automatically.
+
+## Verification (live server)
+
+- `GET /api/v1/health` → 200
+- `POST /api/v1/auth/login` (demo) → 200
+- `GET /api/v1/blueprints` (demo ws) → 200, 3 blueprints
+- `POST /api/v1/simulations` (ghost mode, demo ws) → 201
+- HTML served with `Cache-Control: no-cache`; assets with `immutable`
+- `npm run build` passes; frontend tests 36/36 pass

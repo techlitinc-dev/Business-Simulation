@@ -36,10 +36,10 @@ export default function BurnChart({ ticks }: BurnChartProps) {
           />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-axis))' }}
           />
           <YAxis
-            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-axis))' }}
             tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
             width={64}
           />
@@ -50,6 +50,7 @@ export default function BurnChart({ ticks }: BurnChartProps) {
               borderRadius: 8,
               color: 'hsl(var(--chart-text))',
             }}
+            itemStyle={{ color: 'hsl(var(--chart-text))' }}
             formatter={(value, name) => [
               `$${Number(value ?? 0).toLocaleString()}`,
               name === 'mrr' ? 'MRR' : 'Burn rate',

@@ -38,10 +38,12 @@
     --chart-4: 38 95% 55%;
     --chart-5: 330 70% 58%;
     /* Chart surface — a light panel so the curves and labels stand out
-       against the dark war-room canvas (requested: white/contrast bg). */
+       against the dark war-room canvas (requested: white/contrast bg).
+       Text is a mid slate — readable but not stark black. */
     --chart-surface: 30 22% 97%;
     --chart-grid: 24 10% 78%;
-    --chart-text: 222 47% 11%;
+    --chart-text: 215 25% 27%;
+    --chart-axis: 24 8% 45%;
   }
 
   .light {
@@ -79,7 +81,8 @@
     /* Chart surface in light mode: pure white panel, dark grid/text. */
     --chart-surface: 0 0% 100%;
     --chart-grid: 214 32% 84%;
-    --chart-text: 222 47% 11%;
+    --chart-text: 215 25% 27%;
+    --chart-axis: 214 16% 42%;
   }
 }
 

@@ -41,16 +41,16 @@ export default function CashCurve({ ticks }: CashCurveProps) {
           />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-axis))' }}
             label={{
               value: 'Month',
               position: 'insideBottom',
               offset: -4,
-              fill: 'hsl(var(--chart-text))',
+              fill: 'hsl(var(--chart-axis))',
             }}
           />
           <YAxis
-            tick={{ fontSize: 12, fill: 'hsl(var(--chart-text))' }}
+            tick={{ fontSize: 12, fill: 'hsl(var(--chart-axis))' }}
             tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
             width={64}
           />
@@ -61,6 +61,7 @@ export default function CashCurve({ ticks }: CashCurveProps) {
               borderRadius: 8,
               color: 'hsl(var(--chart-text))',
             }}
+            itemStyle={{ color: 'hsl(var(--chart-text))' }}
             formatter={(value) => [
               `$${Number(value ?? 0).toLocaleString()}`,
               'Cash balance',
