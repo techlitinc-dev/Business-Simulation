@@ -322,3 +322,52 @@ disabled / did nothing** even with a complete blueprint.
 
 Users who were previously stuck should hard-refresh once to load the new
 bundle (cache headers now make this automatic on future deploys).
+
+---
+
+# Round 5 — Finish button still unclickable (missing blueprint name field)
+
+Date: 2026-08-10
+
+## Problem
+
+After round 4's fix, the Finish button was still disabled for new
+blueprint wizards. The backend logs showed a `GET /api/v1/blueprints//versions`
+404 (double-slash = empty `blueprintId`), meaning the blueprint was **never
+created** in the first place.
+
+## Root cause — `draft.name` was never set
+
+The ProfileStep (step 1) collected model type, stage, industry, and
+geography — but had **no field for the blueprint's name**. The
+`BuilderWizard`'s auto-create effect is gated on:
+
+```ts
+const metaReady = draft.name.trim().length > 0
+if (needsCreate && metaReady && profile.industry) { ... }
+```
+
+Since `draft.name` stayed `''` (from `initialDraft`), `metaReady` was always
+`false`, the POST `/blueprints` **never fired**, `draft.blueprintId` stayed
+`null`, and Finish was permanently disabled (`disabled={!draft.blueprintId}`).
+
+## Fix
+
+Added a **"Blueprint name"** text input to the ProfileStep (step 1),
+connected to the store's `updateMeta({ name })`.
+
+```
++ <Field label="Blueprint name">
++   <input value={draft.name} onChange={(e) => updateMeta({ name: e.target.value })} />
++ </Field>
+```
+
+Now typing a name on step 1 sets `draft.name`, the auto-create fires
+immediately after industry is selected (step 1 is complete), and the
+blueprint is created with the seeded minimal-valid payload.
+
+## Verification
+
+- `npm run build` passes; frontend tests 36/36 pass
+- Deployed to live server; bundle `index-djqBugVO.js` contains the fix
+- `POST /api/v1/blueprints` with the seeded payload returns 201

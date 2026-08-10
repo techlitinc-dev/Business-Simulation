@@ -3,11 +3,21 @@ import { GEOGRAPHIES, MODEL_TYPES, STAGES } from '@/features/blueprint/types'
 import { Field, SelectInput } from './fields'
 
 export default function ProfileStep() {
-  const profile = useBlueprintDraftStore((s) => s.draft.payload.business_profile)
+  const draft = useBlueprintDraftStore((s) => s.draft)
+  const profile = draft.payload.business_profile
   const updateSection = useBlueprintDraftStore((s) => s.updateSection)
+  const updateMeta = useBlueprintDraftStore((s) => s.updateMeta)
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Blueprint name">
+        <input
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          value={draft.name}
+          placeholder="My business"
+          onChange={(e) => updateMeta({ name: e.target.value })}
+        />
+      </Field>
       <Field label="Business model" hint="SaaS, D2C, Retail, Restaurant, Fintech, Other">
         <SelectInput
           value={profile.model_type}
