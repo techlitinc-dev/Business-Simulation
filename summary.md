@@ -257,3 +257,68 @@ bundle, then future deploys propagate automatically.
 - `POST /api/v1/simulations` (ghost mode, demo ws) → 201
 - HTML served with `Cache-Control: no-cache`; assets with `immutable`
 - `npm run build` passes; frontend tests 36/36 pass
+
+---
+
+# Round 4 — Blueprint Finish button not clickable
+
+Date: 2026-08-10
+
+## Problem
+
+On the Build-a-Blueprint wizard (step 5 / Review), the **Finish button was
+disabled / did nothing** even with a complete blueprint.
+
+## Root causes
+
+1. **Stale server-validation gating.** `canFinish` was computed from
+   `GET /blueprints/{id}/validate`, which validates the *last saved version*.
+   The wizard auto-saves 800 ms after every keystroke, so validation always
+   lagged the current draft. The button could be disabled by stale errors from
+   an earlier state even when the current draft was fine — or enabled when the
+   current draft was actually broken.
+2. **Silent disabling.** When blocked, the button was just `disabled` with only
+   a hover tooltip. There was no on-screen reason, so it looked broken
+   ("not clickable").
+3. **Silent save failures.** `useAddVersion` had no `onError` handler, and the
+   Finish click's `onError` was empty — if the server rejected the payload
+   (422), the user got no feedback and stayed stuck.
+4. **A `//versions` 404** in the logs showed the debounced auto-save could fire
+   with an empty `blueprintId` (pre-deploy race in the old bundle).
+
+## Fixes
+
+- **Client-side validation of the current draft.** Added `validateDraft()` to
+  `frontend/src/features/blueprint/types.ts`, mirroring the backend rules
+  (revenue streams present, LTV ≥ CAC, positive contribution margin, runway
+  warning). The wizard now validates what the user has *actually typed*, so
+  the Finish state is always accurate.
+- **Finish is always clickable once a blueprint exists.** The button is no
+  longer disabled by validation errors. Clicking Finish saves the payload and
+  navigates; if the server rejects it, an error toast explains why and the
+  user stays on the wizard with the ValidationPanel showing the issues.
+- **Inline error feedback.** When the local draft has validation errors, a
+  message appears above the Finish button listing what to fix (previously a
+  dead button with no explanation).
+- **Finish save errors toast.** `handleFinish` now surfaces the server's
+  rejection message via `toastError` instead of failing silently.
+- **Removed the wizard's own `useBlueprintValidation`** — it only duplicated
+  what `ValidationPanel` already fetches, and its stale result was the source
+  of the wrong `canFinish` state.
+
+## Files changed
+
+- `frontend/src/features/blueprint/types.ts` — added `validateDraft()`
+- `frontend/src/features/blueprint/BuilderWizard.tsx` — use local validation,
+  clickable Finish with toast on server rejection, inline error message
+
+## Verification
+
+- `npm run build` passes; frontend tests 36/36 pass; lint clean
+- Deployed to the live server; new bundle `index-CHk4b3D-.js` contains the fix
+- `/api/v1/health` → 200
+
+## Note
+
+Users who were previously stuck should hard-refresh once to load the new
+bundle (cache headers now make this automatic on future deploys).

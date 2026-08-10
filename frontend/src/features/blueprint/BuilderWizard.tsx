@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { toastError } from '@/lib/toast'
 import { useBlueprintDraftStore } from '@/stores/blueprint'
 import ValidationPanel from './ValidationPanel'
 import CostsTeamStep from './steps/CostsTeamStep'
@@ -10,7 +11,8 @@ import FinancialsStep from './steps/FinancialsStep'
 import ProfileStep from './steps/ProfileStep'
 import RevenueStep from './steps/RevenueStep'
 import ReviewStep from './steps/ReviewStep'
-import { useAddVersion, useBlueprintValidation, useCreateBlueprint } from './api'
+import { useAddVersion, useCreateBlueprint } from './api'
+import { validateDraft } from './types'
 
 const STEPS = ['Profile', 'Revenue Streams', 'Costs & Team', 'Financials', 'Review']
 
@@ -39,12 +41,13 @@ export default function BuilderWizard() {
 
   const createBlueprint = useCreateBlueprint()
   const addVersion = useAddVersion(draft.blueprintId ?? undefined)
-  const { data: validation, isFetching: validating } = useBlueprintValidation(
-    draft.blueprintId ?? undefined,
-  )
 
-  const hasErrors = Boolean(validation?.errors.length)
-  const canFinish = Boolean(draft.blueprintId) && !hasErrors
+  // Validate the *current* draft locally so the Finish button always reflects
+  // what the user has typed (server validation of the last saved version lags
+  // behind the debounced auto-save).
+  const localReport = validateDraft(draft.payload)
+  const localErrors = localReport.errors
+  const hasErrors = localErrors.length > 0
   const needsCreate = !draft.blueprintId
 
   // Auto-create the draft blueprint once step 1 (profile) is complete.
@@ -114,12 +117,18 @@ export default function BuilderWizard() {
   }, [step])
 
   const handleFinish = () => {
-    if (!canFinish || !draft.blueprintId) return
-    // Make sure the latest payload is persisted before leaving the wizard.
+    if (!draft.blueprintId) return
+    // Persist the latest payload and navigate. If the server rejects it
+    // (422 with validation issues), tell the user and stay on the wizard.
     addVersion.mutate(draft.payload, {
       onSuccess: () => navigate(`/app/blueprints/${draft.blueprintId}`),
-      onError: () => {
-        // Validation errors are surfaced in the panel; stay on the wizard.
+      onError: (err: unknown) => {
+        toastError(
+          err instanceof Error
+            ? err.message
+            : 'The server rejected this blueprint. Check the validation panel.',
+          'Could not finish blueprint',
+        )
       },
     })
   }
@@ -167,19 +176,29 @@ export default function BuilderWizard() {
           {step < STEPS.length - 1 ? (
             <Button onClick={() => setStep(Math.min(STEPS.length - 1, step + 1))}>Next</Button>
           ) : (
-            <Button
-              onClick={handleFinish}
-              disabled={!canFinish || addVersion.isPending}
-              title={
-                validating
-                  ? 'Waiting for validation…'
-                  : hasErrors
-                    ? 'Fix the validation errors first'
-                    : undefined
-              }
-            >
-              {addVersion.isPending ? 'Saving…' : 'Finish'}
-            </Button>
+            <div className="flex flex-col items-end gap-2">
+              {hasErrors && (
+                <p className="max-w-xs text-right text-xs text-destructive">
+                  Fix the validation errors below before finishing:
+                  {localErrors.map((e) => e.message).join(' ')}
+                </p>
+              )}
+              <Button
+                onClick={handleFinish}
+                disabled={!draft.blueprintId || addVersion.isPending}
+                title={
+                  !draft.blueprintId
+                    ? 'Save the profile first'
+                    : addVersion.isPending
+                      ? 'Saving…'
+                      : hasErrors
+                        ? 'Fix the validation errors first'
+                        : undefined
+                }
+              >
+                {addVersion.isPending ? 'Saving…' : 'Finish'}
+              </Button>
+            </div>
           )}
         </div>
       </div>

@@ -119,3 +119,71 @@ export interface ValidationReport {
   errors: ValidationIssue[]
   warnings: ValidationIssue[]
 }
+
+/**
+ * Client-side mirror of the backend's structural validation rules
+ * (backend/app/services/blueprint_service.py). Runs against the *current*
+ * draft so the Finish button reflects what the user has typed, not the last
+ * server-saved version (which lags behind by the debounce + round-trip).
+ */
+export function validateDraft(payload: BlueprintPayload): ValidationReport {
+  const errors: ValidationIssue[] = []
+  const warnings: ValidationIssue[] = []
+
+  const streams = payload.revenue_engine.streams
+  if (!streams || streams.length === 0) {
+    errors.push({
+      code: 'NO_REVENUE_STREAMS',
+      severity: 'error',
+      field: 'revenue_engine.streams',
+      message: 'At least one revenue stream is required.',
+    })
+  }
+
+  for (const stream of streams ?? []) {
+    const base = `revenue_engine.streams[${stream.name || 'unnamed'}]`
+    if (stream.cac > 0 && stream.ltv / stream.cac < 3) {
+      warnings.push({
+        code: 'LTV_CAC_RATIO',
+        severity: 'warning',
+        field: `${base}.ltv`,
+        message:
+          'Your LTV:CAC ratio is below 3:1. Consider raising prices or reducing churn.',
+      })
+    }
+    if (stream.ltv < stream.cac) {
+      errors.push({
+        code: 'NEGATIVE_UNIT_ECONOMICS',
+        severity: 'error',
+        field: `${base}.ltv`,
+        message: 'LTV is less than CAC, so each customer is acquired at a loss.',
+      })
+    }
+    if (
+      stream.price_point > 0 &&
+      payload.cost_structure.variable_per_unit >= stream.price_point
+    ) {
+      errors.push({
+        code: 'NEGATIVE_CONTRIBUTION_MARGIN',
+        severity: 'error',
+        field: `${base}.price_point`,
+        message: 'Variable cost per unit meets or exceeds the price point.',
+      })
+    }
+  }
+
+  const burn = payload.cost_structure.burn_rate_month_1
+  if (burn > 0) {
+    const runway = payload.financials.starting_capital / burn
+    if (runway < payload.financials.target_runway_months) {
+      warnings.push({
+        code: 'INSUFFICIENT_RUNWAY',
+        severity: 'warning',
+        field: 'financials.starting_capital',
+        message: `Starting capital covers only ${runway.toFixed(1)} months of burn, below the ${payload.financials.target_runway_months}-month target.`,
+      })
+    }
+  }
+
+  return { is_valid: errors.length === 0, errors, warnings }
+}
