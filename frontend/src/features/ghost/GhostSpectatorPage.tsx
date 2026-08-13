@@ -12,6 +12,12 @@ import type { HurdleEvent } from '@/features/simulation/types'
 import { useSimulationSocket } from '@/lib/ws'
 import { useSimulationStore } from '@/stores/simulation'
 
+const PERSONALITY_META: Record<string, { emoji: string; label: string }> = {
+  aggressive: { emoji: '🦁', label: 'Aggressive' },
+  conservative: { emoji: '🐢', label: 'Conservative' },
+  opportunist: { emoji: '🦊', label: 'Opportunist' },
+}
+
 function DecisionFeed({ events }: { events: HurdleEvent[] }) {
   const decisions = events
     .filter((e) => e.chosen_option_id)
@@ -93,6 +99,10 @@ export default function GhostSpectatorPage() {
   }
 
   const personality = (run.config?.personality as string | undefined) ?? 'ghost'
+  const personalityMeta = PERSONALITY_META[personality] ?? {
+    emoji: '👻',
+    label: personality,
+  }
 
   return (
     <div className="space-y-6">
@@ -106,7 +116,8 @@ export default function GhostSpectatorPage() {
           <div className="mt-1 flex items-center gap-2">
             <h1 className="text-2xl font-semibold">Ghost Run</h1>
             <Badge className="border-primary/40 bg-primary/10 text-primary">
-              {personality}
+              <span className="mr-1">{personalityMeta.emoji}</span>
+              {personalityMeta.label}
             </Badge>
             <Badge className="border-border bg-muted/40">{run.status}</Badge>
           </div>

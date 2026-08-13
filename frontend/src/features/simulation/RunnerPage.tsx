@@ -112,7 +112,7 @@ export default function RunnerPage() {
               <Link to={`/app/simulations/${runId}/report`}>View report</Link>
             </Button>
           )}
-          {status === 'awaiting_decision' && (
+          {(status === 'running' || status === 'awaiting_decision') && (
             <Button
               variant="outline"
               onClick={() =>
@@ -152,6 +152,23 @@ export default function RunnerPage() {
         </div>
       </div>
 
+      {awaiting && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+          <span className="relative flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-amber-300">
+              Awaiting decision
+            </p>
+            <p className="text-xs text-amber-200/70">
+              A hurdle has hit — the War Room is waiting for your call.
+            </p>
+          </div>
+        </div>
+      )}
+
       {progress && run?.mode === 'monte_carlo' && (
         <Card>
           <CardContent className="p-4">
@@ -180,7 +197,7 @@ export default function RunnerPage() {
             <CashCurve ticks={ticks} />
           </CardContent>
         </Card>
-        <LiveFeed events={events} />
+        <LiveFeed events={events} ticks={ticks} />
       </div>
 
       <DecisionModal

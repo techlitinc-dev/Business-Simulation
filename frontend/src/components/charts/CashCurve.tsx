@@ -3,6 +3,7 @@ import {
   AreaChart,
   CartesianGrid,
   Legend,
+  Line,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -21,6 +22,7 @@ export default function CashCurve({ ticks }: CashCurveProps) {
   const data = ticks.map((t) => ({
     month: t.month,
     cash_balance: t.kpis.cash_balance ?? 0,
+    mrr: t.kpis.mrr ?? 0,
   }))
 
   return (
@@ -63,15 +65,21 @@ export default function CashCurve({ ticks }: CashCurveProps) {
               color: 'hsl(var(--chart-text))',
             }}
             itemStyle={{ color: 'hsl(var(--chart-text))' }}
-            formatter={(value) => [
+            formatter={(value, name) => [
               `$${Number(value ?? 0).toLocaleString()}`,
-              'Cash balance',
+              name === 'mrr' ? 'MRR' : 'Cash balance',
             ]}
           />
           <ReferenceLine
             y={0}
             stroke="hsl(var(--destructive))"
             strokeDasharray="4 4"
+            label={{
+              value: '$0 runway',
+              position: 'insideBottomRight',
+              fill: 'hsl(var(--destructive))',
+              fontSize: 11,
+            }}
           />
           <Legend
             verticalAlign="top"
@@ -81,7 +89,6 @@ export default function CashCurve({ ticks }: CashCurveProps) {
               fontSize: 13,
               fontWeight: 500,
             }}
-            formatter={() => 'Cash balance'}
           />
           <Area
             type="monotone"
@@ -90,6 +97,15 @@ export default function CashCurve({ ticks }: CashCurveProps) {
             stroke="var(--chart-1)"
             strokeWidth={2}
             fill="url(#cashFill)"
+            dot={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="mrr"
+            name="MRR"
+            stroke="var(--chart-2)"
+            strokeWidth={1.5}
+            strokeDasharray="6 4"
             dot={false}
           />
         </AreaChart>
