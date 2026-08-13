@@ -14,6 +14,11 @@ import { useSimulationStore } from '@/stores/simulation'
 
 const MODES: { id: RunMode; label: string; description: string }[] = [
   {
+    id: 'baseline',
+    label: 'Baseline',
+    description: 'Run a full 24-month projection instantly — no hurdles, pure math.',
+  },
+  {
     id: 'stress',
     label: 'Stress test',
     description: 'Run a single path with AI hurdles — instant, interactive.',
@@ -29,7 +34,11 @@ export default function SimulationListPage() {
   const [searchParams] = useSearchParams()
   const requestedMode = searchParams.get('mode')
   const initialMode: RunMode =
-    requestedMode === 'monte_carlo' ? 'monte_carlo' : 'stress'
+    requestedMode === 'monte_carlo'
+      ? 'monte_carlo'
+      : requestedMode === 'baseline'
+        ? 'baseline'
+        : 'stress'
   const [mode, setMode] = useState<RunMode>(initialMode)
 
   const { data: blueprints = [], isLoading } = useBlueprints()
@@ -100,7 +109,9 @@ export default function SimulationListPage() {
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">
           {mode === 'monte_carlo'
             ? 'Start a Monte Carlo run from a blueprint'
-            : 'Start a stress run from a blueprint'}
+            : mode === 'baseline'
+              ? 'Start a baseline run from a blueprint'
+              : 'Start a stress run from a blueprint'}
         </h2>
         {isLoading ? (
           <Card className="panel">
@@ -145,7 +156,12 @@ export default function SimulationListPage() {
                     disabled={startSimulation.isPending}
                     className="shrink-0 sm:self-center"
                   >
-                    <Play className="h-4 w-4" /> Run {mode === 'monte_carlo' ? 'Monte Carlo' : 'stress test'}
+                    <Play className="h-4 w-4" /> Run{' '}
+                    {mode === 'monte_carlo'
+                      ? 'Monte Carlo'
+                      : mode === 'baseline'
+                        ? 'baseline'
+                        : 'stress test'}
                   </Button>
                 </li>
               ))}
