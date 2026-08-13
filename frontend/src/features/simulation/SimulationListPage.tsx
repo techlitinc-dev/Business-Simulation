@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 import { FlaskConical, Ghost, Play } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -5,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useBlueprints } from '@/features/blueprint/api'
+import { useBlueprints, useBlueprintVersions } from '@/features/blueprint/api'
 import { useStartSimulation } from '@/features/simulation/api'
 import { useSimulationStore } from '@/stores/simulation'
 
@@ -13,18 +15,28 @@ export default function SimulationListPage() {
   const { data: blueprints = [], isLoading } = useBlueprints()
   const startSimulation = useStartSimulation()
   const reset = useSimulationStore((s) => s.reset)
+  const [pendingBlueprintId, setPendingBlueprintId] = useState<string | null>(null)
+  const { data: versions = [] } = useBlueprintVersions(pendingBlueprintId ?? undefined)
+  const latestVersionId = versions[0]?.id ?? ''
 
-  const handleStart = (blueprintVersionId: string) => {
+  // Once the latest version is loaded for the pending blueprint, start the run.
+  useEffect(() => {
+    if (!pendingBlueprintId || !latestVersionId) return
     reset()
     startSimulation.mutate(
-      { blueprint_version_id: blueprintVersionId, mode: 'stress', seed: Date.now() % 2 ** 31 },
+      {
+        blueprint_version_id: latestVersionId,
+        mode: 'stress',
+        seed: Date.now() % 2 ** 31,
+      },
       {
         onSuccess: (run) => {
           window.location.href = `/app/simulations/${run.id}`
         },
       },
     )
-  }
+    setPendingBlueprintId(null)
+  }, [pendingBlueprintId, latestVersionId, reset, startSimulation])
 
   return (
     <div className="space-y-6">
@@ -87,7 +99,7 @@ export default function SimulationListPage() {
                   </div>
                   <Button
                     size="sm"
-                    onClick={() => handleStart(bp.id)}
+                    onClick={() => setPendingBlueprintId(bp.id)}
                     disabled={startSimulation.isPending}
                     className="shrink-0 sm:self-center"
                   >
