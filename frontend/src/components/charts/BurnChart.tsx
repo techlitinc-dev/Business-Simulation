@@ -2,6 +2,7 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
+  Legend,
   Line,
   ResponsiveContainer,
   Tooltip,
@@ -45,8 +46,8 @@ export default function BurnChart({ ticks }: BurnChartProps) {
           />
           <Tooltip
             contentStyle={{
-              background: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--chart-surface))',
+              border: '1px solid hsl(var(--chart-grid))',
               borderRadius: 8,
               color: 'hsl(var(--chart-text))',
             }}
@@ -56,8 +57,22 @@ export default function BurnChart({ ticks }: BurnChartProps) {
               name === 'mrr' ? 'MRR' : 'Burn rate',
             ]}
           />
+          <Legend
+            verticalAlign="top"
+            height={36}
+            iconType="line"
+            wrapperStyle={{
+              color: 'hsl(var(--chart-text))',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+            formatter={(value: string) =>
+              value === 'mrr' ? 'MRR' : 'Burn rate'
+            }
+          />
           <Bar
             dataKey="burn_rate"
+            name="Burn rate"
             fill="var(--chart-3)"
             fillOpacity={0.55}
             radius={[3, 3, 0, 0]}
@@ -65,6 +80,7 @@ export default function BurnChart({ ticks }: BurnChartProps) {
           <Line
             type="monotone"
             dataKey="mrr"
+            name="MRR"
             stroke="var(--chart-2)"
             strokeWidth={2}
             dot={false}

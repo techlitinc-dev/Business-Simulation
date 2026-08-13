@@ -2,6 +2,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Legend,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -56,8 +57,8 @@ export default function CashCurve({ ticks }: CashCurveProps) {
           />
           <Tooltip
             contentStyle={{
-              background: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--chart-surface))',
+              border: '1px solid hsl(var(--chart-grid))',
               borderRadius: 8,
               color: 'hsl(var(--chart-text))',
             }}
@@ -72,9 +73,20 @@ export default function CashCurve({ ticks }: CashCurveProps) {
             stroke="hsl(var(--destructive))"
             strokeDasharray="4 4"
           />
+          <Legend
+            verticalAlign="top"
+            height={36}
+            wrapperStyle={{
+              color: 'hsl(var(--chart-text))',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+            formatter={() => 'Cash balance'}
+          />
           <Area
             type="monotone"
             dataKey="cash_balance"
+            name="Cash balance"
             stroke="var(--chart-1)"
             strokeWidth={2}
             fill="url(#cashFill)"
