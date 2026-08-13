@@ -107,7 +107,7 @@ export default function RunnerPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {status === 'completed' && (
+          {(status === 'completed' || status === 'dead') && (
             <Button variant="outline" asChild>
               <Link to={`/app/simulations/${runId}/report`}>View report</Link>
             </Button>

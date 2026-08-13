@@ -97,20 +97,18 @@ async def simulation_ws(websocket: WebSocket, run_id: str) -> None:
                 )
             )
 
-        # Replay any pending hurdle so a refresh still shows the War Room
-        # decision modal (T26). Newest pending event last, as the client
-        # treats the final event as the one awaiting a decision.
-        pending_events = (
+        # Replay hurdle events so a refresh still shows the War Room decision
+        # modal (T26) and ghost spectators see resolved decisions (T43).
+        # Pending first, then resolved — the client treats the final pending
+        # event as the one awaiting a decision.
+        events = (
             await session.scalars(
                 select(SimulationEvent)
-                .where(
-                    SimulationEvent.run_id == run_id,
-                    SimulationEvent.status == "pending",
-                )
+                .where(SimulationEvent.run_id == run_id)
                 .order_by(SimulationEvent.created_at.asc())
             )
         ).all()
-        for event_row in pending_events:
+        for event_row in events:
             await websocket.send_text(
                 json.dumps(
                     {"type": "event", "data": dict(event_row.payload)}

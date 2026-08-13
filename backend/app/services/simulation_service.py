@@ -602,7 +602,8 @@ async def apply_decision(
     )
     db.add(decision)
     event.status = "resolved"
-    event.payload["chosen_option_id"] = option_id
+    # Assign a fresh dict — in-place JSONB mutation isn't tracked for commit.
+    event.payload = {**event.payload, "chosen_option_id": option_id}
     run.state_snapshot = state_to_dict(next_state)
     run.current_month = event.month
     await db.commit()

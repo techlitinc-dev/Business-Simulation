@@ -135,7 +135,7 @@ async def _autoplay(
             hurdle_payload, simulation_service.state_to_dict(state)
         )
 
-        await _apply_ghost_decision(db, run, event, decision)
+        await _apply_ghost_decision(db, run, event, decision, redis=redis)
         await db.refresh(run)
 
     if run.status not in (
@@ -155,6 +155,7 @@ async def _apply_ghost_decision(
     run: SimulationRun,
     event: SimulationEvent,
     decision: Any,
+    redis: Any = None,
 ) -> None:
     """Mirror apply_decision's engine path, tagging the decision as ghost."""
     from app.engine.events import apply_event
@@ -190,7 +191,19 @@ async def _apply_ghost_decision(
         )
     )
     event.status = "resolved"
-    event.payload["chosen_option_id"] = option_id
+    # Assign a fresh dict — in-place JSONB mutation isn't tracked for commit.
+    event.payload = {
+        **event.payload,
+        "chosen_option_id": option_id,
+        "ghost_decision": payload,
+    }
     run.state_snapshot = simulation_service.state_to_dict(next_state)
     run.current_month = event.month
     await db.commit()
+
+    # Stream the resolved hurdle + decision to the spectator page (T43).
+    if redis is not None:
+        from app.services.simulation_service import publish_envelope
+
+        await publish_envelope(redis, run.id, "event", event.payload)
+        await publish_envelope(redis, run.id, "status", {"status": run.status})

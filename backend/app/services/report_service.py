@@ -83,6 +83,32 @@ def survival_metrics_from_result(result: dict[str, Any]) -> SurvivalMetrics:
     )
 
 
+def survival_metrics_from_baseline_result(result: dict[str, Any]) -> SurvivalMetrics:
+    """Survival metrics for a single baseline/stress run outcome.
+
+    Dead (bankrupt) runs persist a compact ``build_baseline_result`` payload
+    rather than a Monte Carlo aggregation, so synthesise one-run metrics from
+    it so the resilience audit still renders (T30).
+    """
+    survived = bool(result.get("survived", False))
+    months = int(result.get("months_survived", 0))
+    return SurvivalMetrics(
+        survival_rate=1.0 if survived else 0.0,
+        runs_total=1,
+        runs_survived=1 if survived else 0,
+        median_lifespan_months=months,
+        kill_vectors=[
+            KillVector(
+                cause="financial" if not survived else "natural_causes",
+                count=0 if survived else 1,
+                pct=100.0 if not survived else 0.0,
+            )
+        ]
+        if not survived
+        else [],
+    )
+
+
 def _weaknesses_from_vectors(
     metrics: SurvivalMetrics, vulnerabilities: list[dict[str, Any]]
 ) -> list[Weakness]:
@@ -236,7 +262,9 @@ async def generate_resilience_audit(
     )
     if run is None:
         raise DomainError(status_code=404, detail="Simulation run not found")
-    if run.status != "completed":
+    # A dead (bankrupt) run has a terminal outcome worth auditing too; it
+    # persists a baseline-shaped result with resilience data (T25/T30).
+    if run.status not in ("completed", "dead"):
         raise DomainError(
             status_code=409, detail="Report requires a completed run"
         )
@@ -246,7 +274,10 @@ async def generate_resilience_audit(
         )
 
     result = run.result or {}
-    metrics = survival_metrics_from_result(result)
+    if "n_runs" in result or "runs_summary" in result:
+        metrics = survival_metrics_from_result(result)
+    else:
+        metrics = survival_metrics_from_baseline_result(result)
 
     version = await db.get(BlueprintVersion, run.blueprint_version_id)
     vulnerabilities = list(version.vulnerabilities or []) if version else []

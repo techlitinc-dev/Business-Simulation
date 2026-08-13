@@ -51,7 +51,9 @@ export default function ReportsListPage() {
   }
 
   const reportable = runs.filter(
-    (r) => r.status === 'completed' && (r.mode === 'monte_carlo' || r.mode === 'stress'),
+    (r) =>
+      (r.status === 'completed' || r.status === 'dead') &&
+      (r.mode === 'monte_carlo' || r.mode === 'stress'),
   )
 
   return (
