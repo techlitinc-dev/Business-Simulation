@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Pause, Play, X } from 'lucide-react'
 
@@ -40,6 +40,7 @@ export default function RunnerPage() {
   const run = store.run ?? runData ?? null
   const ticks = store.ticks.length > 0 ? store.ticks : ticksData
   const events = store.events
+  const [modalDismissed, setModalDismissed] = useState(false)
 
   // Hydrate from REST once when the socket hasn't delivered yet.
   useEffect(() => {
@@ -50,13 +51,27 @@ export default function RunnerPage() {
   }, [runData])
 
   const pendingEvent = events[events.length - 1] ?? null
-  const awaiting = run?.status === 'awaiting_decision'
+  const awaiting = run?.status === 'awaiting_decision' && !modalDismissed
+
+  // Re-arm the modal whenever a fresh hurdle arrives (new event_id).
+  useEffect(() => {
+    if (pendingEvent && run?.status === 'awaiting_decision') {
+      setModalDismissed(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEvent?.event_id])
 
   const handleConfirm = (option: StrategicOption) => {
     if (!pendingEvent) return
     decide.mutate(
       { event_id: pendingEvent.event_id, option_id: option.option_id },
-      { onSuccess: () => store.setStatus(decide.data?.run.status ?? run?.status ?? 'running') },
+      {
+        onSuccess: (data) => {
+          store.setStatus(data.run.status)
+          store.setRun(data.run)
+          setModalDismissed(false)
+        },
+      },
     )
   }
 
@@ -98,19 +113,38 @@ export default function RunnerPage() {
             </Button>
           )}
           {status === 'awaiting_decision' && (
-            <Button variant="outline" onClick={() => control.mutate('pause')} disabled={isTerminal}>
+            <Button
+              variant="outline"
+              onClick={() =>
+                control.mutate('pause', { onSuccess: (data) => store.setRun(data) })
+              }
+              disabled={isTerminal}
+            >
               <Pause className="h-4 w-4" /> Pause
             </Button>
           )}
           {status === 'paused' && (
-            <Button variant="outline" onClick={() => control.mutate('resume')} disabled={isTerminal}>
+            <Button
+              variant="outline"
+              onClick={() =>
+                control.mutate('resume', { onSuccess: (data) => store.setRun(data) })
+              }
+              disabled={isTerminal}
+            >
               <Play className="h-4 w-4" /> Resume
             </Button>
           )}
           <Button
             variant="ghost"
             className="text-destructive"
-            onClick={() => control.mutate('cancel')}
+            onClick={() =>
+              control.mutate('cancel', {
+                onSuccess: (data) => {
+                  store.setRun(data)
+                  setModalDismissed(true)
+                },
+              })
+            }
             disabled={isTerminal}
           >
             <X className="h-4 w-4" /> Cancel
@@ -154,7 +188,10 @@ export default function RunnerPage() {
         event={pendingEvent}
         submitting={decide.isPending}
         onConfirm={handleConfirm}
-        onOpenChange={() => {}}
+        onOpenChange={(open) => {
+          // Defer — close the modal but leave the run awaiting a decision.
+          if (!open) setModalDismissed(true)
+        }}
       />
     </div>
   )

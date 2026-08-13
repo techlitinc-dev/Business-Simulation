@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.core.security import decode_token
 from app.db.session import async_session_factory
-from app.models.simulation import SimulationRun, TickLog
+from app.models.simulation import SimulationEvent, SimulationRun, TickLog
 from app.models.workspace import Membership
 from app.schemas.simulation import SimulationRunResponse
 from app.services.simulation_service import STREAM_CHANNEL
@@ -94,6 +94,26 @@ async def simulation_ws(websocket: WebSocket, run_id: str) -> None:
                         "type": "tick",
                         "data": {"month": tick_row.month, "kpis": tick_row.kpis},
                     }
+                )
+            )
+
+        # Replay any pending hurdle so a refresh still shows the War Room
+        # decision modal (T26). Newest pending event last, as the client
+        # treats the final event as the one awaiting a decision.
+        pending_events = (
+            await session.scalars(
+                select(SimulationEvent)
+                .where(
+                    SimulationEvent.run_id == run_id,
+                    SimulationEvent.status == "pending",
+                )
+                .order_by(SimulationEvent.created_at.asc())
+            )
+        ).all()
+        for event_row in pending_events:
+            await websocket.send_text(
+                json.dumps(
+                    {"type": "event", "data": dict(event_row.payload)}
                 )
             )
 

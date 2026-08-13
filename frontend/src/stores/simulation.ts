@@ -11,6 +11,7 @@ interface SimulationState {
   hydrate: (run: SimulationRun, ticks: TickLog[]) => void
   appendTick: (t: { month: number; kpis: Record<string, number> }) => void
   appendEvent: (e: HurdleEvent) => void
+  setRun: (run: SimulationRun) => void
   setStatus: (s: RunStatus) => void
   setProgress: (p: { completed: number; total: number; percent: number }) => void
   reset: () => void
@@ -23,8 +24,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   liveStatus: null,
   progress: null,
 
-  hydrate: (run, ticks) =>
-    set({ run, ticks: [...ticks], liveStatus: run.status, events: [] }),
+  hydrate: (run, ticks) => set({ run, ticks: [...ticks], liveStatus: run.status }),
 
   appendTick: (t) => {
     const { ticks, run } = get()
@@ -39,6 +39,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     if (events.some((ev) => ev.event_id === e.event_id)) return
     set({ events: [...events, e] })
   },
+
+  setRun: (run) => set({ run, liveStatus: run.status }),
 
   setStatus: (s) => {
     const { run } = get()

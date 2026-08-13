@@ -526,6 +526,14 @@ async def run_stress_segment(
     await db.commit()
     await db.refresh(event)
 
+    # The LLM generates its own event_id; normalize it to the DB row id so the
+    # frontend sends back an id the decide endpoint can resolve (T26). Assign a
+    # fresh dict — in-place mutation after refresh() isn't tracked by SQLAlchemy
+    # for plain JSONB columns.
+    if event.payload.get("event_id") != event.id:
+        event.payload = {**event.payload, "event_id": event.id}
+        await db.commit()
+
     await publish_envelope(redis, run.id, "event", event.payload)
     await publish_status(redis, run)
     return run
