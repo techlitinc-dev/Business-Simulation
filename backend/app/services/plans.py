@@ -30,7 +30,7 @@ def _resolve_plan_tier() -> dict[str, Plan]:
             id="free",
             stripe_price_id=None,
             price_usd=0,
-            runs_per_month=3,
+            runs_per_month=-1,
             monte_carlo_runs_per_batch=25,
             llm_tokens_per_month=50_000,
             seats=1,

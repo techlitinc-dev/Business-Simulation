@@ -33,7 +33,7 @@ export const PLAN_TIERS: PlanTier[] = [
     price_yearly: 0,
     tagline: 'Test the waters',
     features: [
-      '5 runs / month',
+      'Unlimited runs',
       'Baseline mode only',
       '1 seat',
       'Basic reports',

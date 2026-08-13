@@ -71,7 +71,7 @@ async def test_usage_endpoint_returns_counters_and_limits(
     body = resp.json()
     assert body["tier"] == "free"
     assert body["usage"] == {"runs_used": 0, "mc_ticks_used": 0, "llm_tokens_used": 0}
-    assert body["limits"]["runs_per_month"] == 3
+    assert body["limits"]["runs_per_month"] == -1
     assert body["limits"]["monte_carlo_runs_per_batch"] == 25
     assert body["limits"]["llm_tokens_per_month"] == 50_000
 
@@ -93,29 +93,19 @@ async def test_starting_run_increments_runs_used(client: AsyncClient) -> None:
     assert usage["usage"]["runs_used"] == 1
 
 
-async def test_free_workspace_blocked_at_3_runs(client: AsyncClient) -> None:
+async def test_free_workspace_runs_are_unlimited(client: AsyncClient) -> None:
     account = await _register(client, "usage3@b.co")
     bp = await _create_blueprint(client, account["headers"])
 
-    for _ in range(3):
+    # Free tier has unlimited runs (runs_per_month == -1); a run past the old
+    # 3-run cap must still succeed.
+    for _ in range(5):
         resp = await client.post(
             "/api/v1/simulations",
             headers=account["headers"],
             json={"blueprint_version_id": bp, "mode": "baseline"},
         )
         assert resp.status_code == 201, resp.text
-
-    # 4th run → 402 plan_limit_exceeded.
-    resp = await client.post(
-        "/api/v1/simulations",
-        headers=account["headers"],
-        json={"blueprint_version_id": bp, "mode": "baseline"},
-    )
-    assert resp.status_code == 402
-    body = resp.json()
-    assert body["code"] == "plan_limit_exceeded"
-    assert body["metric"] == "runs"
-    assert body["tier"] == "free"
 
 
 async def test_pro_workspace_allows_more_runs(client: AsyncClient) -> None:
