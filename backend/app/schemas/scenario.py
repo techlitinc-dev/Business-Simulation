@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.blueprint import BlueprintPayload
+
+_HTML_TAG_RE = re.compile(r"<[^>]*>")
 
 
 class ScenarioCreate(BaseModel):
@@ -24,6 +27,15 @@ class ScenarioCreate(BaseModel):
         "custom",
     ]
     blueprint_version_id: str = Field(min_length=1)
+
+    @field_validator("title", "description")
+    @classmethod
+    def strip_html(cls, value: str) -> str:
+        """Reject HTML/script payloads — marketplace fields are plain text."""
+        stripped = _HTML_TAG_RE.sub("", value).strip()
+        if not stripped:
+            raise ValueError("must not contain only HTML tags")
+        return stripped
 
 
 class ScenarioSummary(BaseModel):

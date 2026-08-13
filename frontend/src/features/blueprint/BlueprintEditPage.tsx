@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useBlueprintDraftStore } from '@/stores/blueprint'
 import BuilderWizard from './BuilderWizard'
@@ -35,10 +37,17 @@ export default function BlueprintEditPage() {
   }
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <BuilderWizard />
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Button variant="ghost" size="sm" asChild className="-ml-2">
+        <Link to={`/app/blueprints/${blueprint.id}`}>
+          <ArrowLeft className="h-4 w-4" /> Back to blueprint
+        </Link>
+      </Button>
+      <Card>
+        <CardContent className="p-6">
+          <BuilderWizard />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

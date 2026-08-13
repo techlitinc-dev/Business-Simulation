@@ -7,11 +7,19 @@ fields so malformed payloads fail loudly instead of being silently dropped.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+_HTML_TAG_RE = re.compile(r"<[^>]*>")
+
+
+def strip_html(value: str) -> str:
+    """Strip HTML tags from a plain-text field (XSS defense)."""
+    return _HTML_TAG_RE.sub("", value).strip()
 
 
 class BusinessProfile(BaseModel):
@@ -115,11 +123,29 @@ class BlueprintCreate(BaseModel):
     stage: str = Field(min_length=1, max_length=120)
     payload: BlueprintPayload
 
+    @field_validator("name", "industry", "stage")
+    @classmethod
+    def strip_html_fields(cls, value: str) -> str:
+        stripped = strip_html(value)
+        if not stripped:
+            raise ValueError("must not contain only HTML tags")
+        return stripped
+
 
 class BlueprintUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     industry: str | None = Field(default=None, min_length=1, max_length=120)
     stage: str | None = Field(default=None, min_length=1, max_length=120)
+
+    @field_validator("name", "industry", "stage")
+    @classmethod
+    def strip_html_fields(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = strip_html(value)
+        if not stripped:
+            raise ValueError("must not contain only HTML tags")
+        return stripped
 
 
 class BlueprintVersionCreate(BaseModel):

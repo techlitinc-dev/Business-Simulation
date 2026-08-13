@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Network, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Network, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -44,7 +44,14 @@ export default function BlueprintDetailPage() {
     payload.cost_structure.team.reduce((sum, m) => sum + m.salary_annual, 0) / 12
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="space-y-6">
+      <Button variant="ghost" size="sm" asChild className="-ml-2">
+        <Link to="/app/blueprints">
+          <ArrowLeft className="h-4 w-4" /> Back to blueprints
+        </Link>
+      </Button>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
@@ -159,6 +166,7 @@ export default function BlueprintDetailPage() {
           </CardContent>
         </Card>
       </aside>
+      </div>
     </div>
   )
 }
