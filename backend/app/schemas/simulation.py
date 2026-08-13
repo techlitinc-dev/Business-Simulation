@@ -94,6 +94,7 @@ class MonteCarloResult(BaseModel):
     p75_lifespan_months: int
     kill_vectors: dict[str, int]
     runs_summary: list[MonteCarloRunSummary]
+    resilience_score: int = Field(default=0, ge=0, le=100)
 
 
 class DecisionAppliedResponse(BaseModel):

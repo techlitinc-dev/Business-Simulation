@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { FlaskConical, Ghost, Play } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,9 +9,29 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBlueprints, useBlueprintVersions } from '@/features/blueprint/api'
 import { useStartSimulation } from '@/features/simulation/api'
+import type { RunMode } from '@/features/simulation/types'
 import { useSimulationStore } from '@/stores/simulation'
 
+const MODES: { id: RunMode; label: string; description: string }[] = [
+  {
+    id: 'stress',
+    label: 'Stress test',
+    description: 'Run a single path with AI hurdles — instant, interactive.',
+  },
+  {
+    id: 'monte_carlo',
+    label: 'Monte Carlo',
+    description: 'Run hundreds of paths in the background and aggregate outcomes.',
+  },
+]
+
 export default function SimulationListPage() {
+  const [searchParams] = useSearchParams()
+  const requestedMode = searchParams.get('mode')
+  const initialMode: RunMode =
+    requestedMode === 'monte_carlo' ? 'monte_carlo' : 'stress'
+  const [mode, setMode] = useState<RunMode>(initialMode)
+
   const { data: blueprints = [], isLoading } = useBlueprints()
   const startSimulation = useStartSimulation()
   const reset = useSimulationStore((s) => s.reset)
@@ -26,7 +46,7 @@ export default function SimulationListPage() {
     startSimulation.mutate(
       {
         blueprint_version_id: latestVersionId,
-        mode: 'stress',
+        mode,
         seed: Date.now() % 2 ** 31,
       },
       {
@@ -36,7 +56,10 @@ export default function SimulationListPage() {
       },
     )
     setPendingBlueprintId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingBlueprintId, latestVersionId, reset, startSimulation])
+
+  const activeMode = MODES.find((m) => m.id === mode) ?? MODES[0]
 
   return (
     <div className="space-y-6">
@@ -46,7 +69,7 @@ export default function SimulationListPage() {
             Simulations
           </h1>
           <p className="text-sm text-muted-foreground">
-            Stress-test your blueprint in the War Room.
+            {activeMode.description}
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -56,9 +79,28 @@ export default function SimulationListPage() {
         </Button>
       </div>
 
+      <div className="flex gap-1 rounded-md border border-border bg-card p-1">
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setMode(m.id)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              mode === m.id
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:bg-accent/50'
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
       <div>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-          Start a stress run from a blueprint
+          {mode === 'monte_carlo'
+            ? 'Start a Monte Carlo run from a blueprint'
+            : 'Start a stress run from a blueprint'}
         </h2>
         {isLoading ? (
           <Card className="panel">
@@ -78,7 +120,7 @@ export default function SimulationListPage() {
           <EmptyState
             icon={FlaskConical}
             title="Build a blueprint first"
-            description="You'll stress-test it here in the War Room once one exists."
+            description="You'll test it here in the War Room once one exists."
             ctaLabel="Build a blueprint"
             onCtaClick={() => {
               window.location.href = '/app/blueprints/new'
@@ -103,7 +145,7 @@ export default function SimulationListPage() {
                     disabled={startSimulation.isPending}
                     className="shrink-0 sm:self-center"
                   >
-                    <Play className="h-4 w-4" /> Run stress test
+                    <Play className="h-4 w-4" /> Run {mode === 'monte_carlo' ? 'Monte Carlo' : 'stress test'}
                   </Button>
                 </li>
               ))}

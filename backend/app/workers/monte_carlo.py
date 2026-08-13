@@ -202,6 +202,7 @@ def aggregate_results(outcomes: list[dict[str, Any]]) -> MonteCarloResult:
             p75_lifespan_months=0,
             kill_vectors={},
             runs_summary=[],
+            resilience_score=0,
         )
 
     lifespans = [int(o["lifespan_months"]) for o in outcomes]
@@ -219,10 +220,18 @@ def aggregate_results(outcomes: list[dict[str, Any]]) -> MonteCarloResult:
         idx = int(p / 100 * (len(ordered) - 1))
         return ordered[idx]
 
+    survival_rate = round(survived_count / len(outcomes), 4) if outcomes else 0.0
+    median_lifespan = int(median(lifespans)) if lifespans else 0
+    # 0-100 heuristic: blend survival share with how far the median run got
+    # toward the 24-month horizon.
+    horizon = 24
+    lifespan_component = min(1.0, median_lifespan / horizon)
+    resilience_score = int(round((survival_rate * 0.7 + lifespan_component * 0.3) * 100))
+
     return MonteCarloResult(
         n_runs=len(outcomes),
-        survival_rate=round(survived_count / len(outcomes), 4),
-        median_lifespan_months=int(median(lifespans)),
+        survival_rate=survival_rate,
+        median_lifespan_months=median_lifespan,
         p25_lifespan_months=percentile(lifespans, 25),
         p75_lifespan_months=percentile(lifespans, 75),
         kill_vectors=kill_vectors,
@@ -234,6 +243,7 @@ def aggregate_results(outcomes: list[dict[str, Any]]) -> MonteCarloResult:
             )
             for o in outcomes
         ],
+        resilience_score=resilience_score,
     )
 
 

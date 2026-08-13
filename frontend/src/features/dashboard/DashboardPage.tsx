@@ -27,8 +27,11 @@ export default function DashboardPage() {
   const { data: runs = [], isLoading, isError } = useRecentRuns()
 
   const latestCompleted = runs.find((r) => r.status === 'completed') ?? null
-  const { data: ticks = [] } = useTicks(latestCompleted?.id)
-  const { data: report } = useReport(latestCompleted?.id)
+  // Fall back to the most recent run (even dead/pending) so the dashboard
+  // never shows a blank "No runs yet" when nothing has completed yet.
+  const latestRun = latestCompleted ?? runs[0] ?? null
+  const { data: ticks = [] } = useTicks(latestRun?.id)
+  const { data: report } = useReport(latestRun?.id)
 
   if (isLoading) {
     return (
@@ -79,7 +82,7 @@ export default function DashboardPage() {
     return <p className="text-sm text-destructive">Could not load dashboard data.</p>
   }
 
-  if (runs.length === 0 || !latestCompleted) {
+  if (runs.length === 0 || !latestRun) {
     return (
       <div className="space-y-6">
         <div>
@@ -149,8 +152,8 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-sm text-muted-foreground">
-            {latestCompleted
-              ? `Latest run: ${latestCompleted.mode.replace('_', ' ')} · seed ${latestCompleted.seed}`
+            {latestRun
+              ? `Latest run: ${latestRun.mode.replace('_', ' ')} · seed ${latestRun.seed} · ${latestRun.status}`
               : 'Your business simulation overview'}
           </p>
         </div>
