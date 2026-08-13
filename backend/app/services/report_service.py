@@ -472,7 +472,8 @@ async def compare_runs(
         )
         if run is None:
             raise DomainError(status_code=404, detail="Simulation run not found")
-        if run.status != "completed":
+        # Dead (bankrupt) runs are terminal and comparable, like reports.
+        if run.status not in ("completed", "dead"):
             raise DomainError(
                 status_code=409, detail="Comparison requires completed runs"
             )
@@ -483,7 +484,11 @@ async def compare_runs(
     vectors_by_run: list[dict[str, float]] = []
 
     for run in runs:
-        metrics = survival_metrics_from_result(run.result or {})
+        result = run.result or {}
+        if "n_runs" in result or "runs_summary" in result:
+            metrics = survival_metrics_from_result(result)
+        else:
+            metrics = survival_metrics_from_baseline_result(result)
         version = await db.get(BlueprintVersion, run.blueprint_version_id)
         resilience_score = int((run.result or {}).get("resilience_score", 0))
         if not resilience_score and metrics.runs_total:

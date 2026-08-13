@@ -4,6 +4,7 @@ import { ArrowLeft, Network, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import PublishScenarioModal from '@/features/marketplace/PublishScenarioModal'
 import ValidationPanel from './ValidationPanel'
 import { useBlueprint, useBlueprints, useDeleteBlueprint } from './api'
 
@@ -65,6 +66,7 @@ export default function BlueprintDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <PublishScenarioModal defaultBlueprintId={blueprint.id} />
             <Button variant="outline" asChild>
               <Link to={`/app/blueprints/${blueprint.id}/edit`}>
                 <Pencil className="h-4 w-4" /> Edit

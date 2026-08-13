@@ -33,9 +33,16 @@ const CATEGORIES = [
   { value: 'custom', label: 'Custom' },
 ]
 
-export default function PublishScenarioModal() {
+interface PublishScenarioModalProps {
+  /** Pre-select a blueprint (e.g. the one being viewed on its detail page). */
+  defaultBlueprintId?: string
+}
+
+export default function PublishScenarioModal({
+  defaultBlueprintId,
+}: PublishScenarioModalProps) {
   const [open, setOpen] = useState(false)
-  const [blueprintId, setBlueprintId] = useState('')
+  const [blueprintId, setBlueprintId] = useState(defaultBlueprintId ?? '')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('custom')

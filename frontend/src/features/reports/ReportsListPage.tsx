@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FileText } from 'lucide-react'
+import { FileText, GitCompareArrows } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,11 +58,18 @@ export default function ReportsListPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Reports</h1>
-        <p className="text-sm text-muted-foreground">
-          Resilience audits from completed Monte Carlo and stress runs.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Reports</h1>
+          <p className="text-sm text-muted-foreground">
+            Resilience audits from completed Monte Carlo and stress runs.
+          </p>
+        </div>
+        <Button variant="outline" asChild>
+          <Link to="/app/reports/compare">
+            <GitCompareArrows className="h-4 w-4" /> Compare V1 vs V2
+          </Link>
+        </Button>
       </div>
 
       {isError ? (

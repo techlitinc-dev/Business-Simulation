@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import {
   Background,
   Controls,
@@ -11,6 +12,7 @@ import {
 import '@xyflow/react/dist/style.css'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useBlueprint } from './api'
 import { blueprintToFlow } from './canvas-layout'
@@ -56,6 +58,11 @@ export default function BlueprintCanvasPage() {
 
   return (
     <div className="space-y-4">
+      <Button variant="ghost" size="sm" asChild className="-ml-2">
+        <Link to={`/app/blueprints/${blueprint.id}`}>
+          <ArrowLeft className="h-4 w-4" /> Back to blueprint
+        </Link>
+      </Button>
       <div>
         <h1 className="text-2xl font-semibold">{blueprint.name}</h1>
         <p className="text-sm text-muted-foreground">
