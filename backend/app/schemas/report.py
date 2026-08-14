@@ -87,6 +87,9 @@ class LeaderboardEntry(BaseModel):
     survival_rate: float
     median_lifespan_months: int
     completed_at: datetime
+    # T44: share token of the run's public report — null when the run has no
+    # shared report, in which case the frontend shows the row as non-clickable.
+    share_token: str | None = None
 
 
 class LeaderboardResponse(BaseModel):

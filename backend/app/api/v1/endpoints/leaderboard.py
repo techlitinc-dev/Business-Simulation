@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.api.deps import DbSession
 from app.models.blueprint import Blueprint, BlueprintVersion
+from app.models.report import Report
 from app.models.simulation import SimulationRun
 from app.models.workspace import Workspace
 from app.schemas.report import LeaderboardEntry, LeaderboardResponse
@@ -19,10 +20,11 @@ async def leaderboard(
 ) -> LeaderboardResponse:
     """Top public Monte Carlo runs by resilience score (no auth)."""
     rows = await db.execute(
-        select(SimulationRun, Workspace, Blueprint)
+        select(SimulationRun, Workspace, Blueprint, Report.share_token)
         .join(Workspace, Workspace.id == SimulationRun.workspace_id)
         .join(BlueprintVersion, BlueprintVersion.id == SimulationRun.blueprint_version_id)
         .join(Blueprint, Blueprint.id == BlueprintVersion.blueprint_id)
+        .outerjoin(Report, Report.run_id == SimulationRun.id)
         .where(
             SimulationRun.mode == "monte_carlo",
             SimulationRun.status == "completed",
@@ -46,7 +48,8 @@ async def leaderboard(
                 (run.result or {}).get("median_lifespan_months", 0)
             ),
             completed_at=run.finished_at or run.created_at,
+            share_token=share_token,
         )
-        for i, (run, ws, bp) in enumerate(rows.all())
+        for i, (run, ws, bp, share_token) in enumerate(rows.all())
     ]
     return LeaderboardResponse(entries=entries)

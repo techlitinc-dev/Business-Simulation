@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Trophy } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +27,8 @@ export interface LeaderboardEntry {
   survival_rate: number
   median_lifespan_months: number
   completed_at: string
+  /** Share token of the run's public report — null/absent when not shared. */
+  share_token?: string | null
 }
 
 function useLeaderboard() {
@@ -62,6 +64,11 @@ function rankMedal(rank: number) {
 export default function LeaderboardPage() {
   const { data, isLoading, isError } = useLeaderboard()
   const entries = data?.entries ?? []
+  const navigate = useNavigate()
+
+  const openReport = (shareToken?: string | null) => {
+    if (shareToken) navigate(`/shared/reports/${shareToken}`)
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-12">
@@ -113,26 +120,51 @@ export default function LeaderboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.map((e) => (
-                <TableRow key={e.run_id}>
-                  <TableCell>{rankMedal(e.rank)}</TableCell>
-                  <TableCell className="font-medium">{e.workspace_name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {e.blueprint_name}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold text-primary">
-                    {e.resilience_score}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge className="border-success/40 bg-success/10 text-success">
-                      {Math.round(e.survival_rate * 100)}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {e.median_lifespan_months} mo
-                  </TableCell>
-                </TableRow>
-              ))}
+              {entries.map((e) => {
+                const clickable = Boolean(e.share_token)
+                return (
+                  <TableRow
+                    key={e.run_id}
+                    onClick={() => openReport(e.share_token)}
+                    onKeyDown={(ev) => {
+                      if (clickable && (ev.key === 'Enter' || ev.key === ' ')) {
+                        ev.preventDefault()
+                        openReport(e.share_token)
+                      }
+                    }}
+                    tabIndex={clickable ? 0 : -1}
+                    aria-label={
+                      clickable
+                        ? `View shared report for ${e.blueprint_name}`
+                        : undefined
+                    }
+                    className={
+                      clickable
+                        ? 'cursor-pointer transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                        : 'opacity-90'
+                    }
+                  >
+                    <TableCell>{rankMedal(e.rank)}</TableCell>
+                    <TableCell className="font-medium">
+                      {e.workspace_name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {e.blueprint_name}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-primary">
+                      {e.resilience_score}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge className="border-success/40 bg-success/10 text-success">
+                        {Math.round(e.survival_rate * 100)}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {e.median_lifespan_months} mo
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </Card>

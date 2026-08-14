@@ -97,6 +97,35 @@ async def test_leaderboard_orders_by_resilience_score(client: AsyncClient) -> No
     scores = [e["resilience_score"] for e in entries]
     assert scores == sorted(scores, reverse=True)
     assert [e["rank"] for e in entries] == [1, 2, 3]
+    # Runs without a shared report expose share_token=null (not an error).
+    assert all(e["share_token"] is None for e in entries)
+
+
+async def test_leaderboard_includes_share_token_when_report_shared(
+    client: AsyncClient,
+) -> None:
+    account = await _register(client, "lb1b@b.co")
+    run_id = await _seed_completed_public_run(
+        client, account, resilience_score=60
+    )
+
+    from app.db.session import async_session_factory
+    from app.models.report import Report
+
+    async with async_session_factory() as session:
+        session.add(
+            Report(
+                run_id=run_id,
+                content_md="# Report",
+                content_json={"survival": {"survival_rate": 0.5}},
+                share_token="tok_abc123",
+            )
+        )
+        await session.commit()
+
+    entries = (await client.get("/api/v1/leaderboard")).json()["entries"]
+    entry = next(e for e in entries if e["run_id"] == run_id)
+    assert entry["share_token"] == "tok_abc123"
 
 
 async def test_leaderboard_excludes_private_runs(client: AsyncClient) -> None:
