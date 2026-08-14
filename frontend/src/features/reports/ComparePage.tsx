@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ArrowRight, GitCompareArrows } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, GitCompareArrows } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -75,6 +76,11 @@ export default function ComparePage({ runs }: ComparePageProps) {
   return (
     <div className="space-y-6">
       <div>
+        <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2">
+          <Link to="/app/reports">
+            <ArrowLeft className="h-4 w-4" /> Back to reports
+          </Link>
+        </Button>
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <GitCompareArrows className="h-6 w-6" /> Compare Runs
         </h1>

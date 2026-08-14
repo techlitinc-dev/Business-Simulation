@@ -10,14 +10,15 @@ export default function ProtectedRoute() {
   const loadMe = useAuthStore((s) => s.loadMe)
   const location = useLocation()
 
-  // Hydrate the user when tokens exist but user is null (e.g. after reload).
+  // Revalidate the user from the API on every app entry (e.g. after reload),
+  // so stale cached data (old is_admin, renames, plan changes) is corrected.
   useEffect(() => {
-    if (isAuthenticated && !user) {
+    if (isAuthenticated && accessToken) {
       void loadMe().catch(() => {
         useAuthStore.getState().logout()
       })
     }
-  }, [isAuthenticated, user, loadMe])
+  }, [isAuthenticated, accessToken, loadMe])
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
