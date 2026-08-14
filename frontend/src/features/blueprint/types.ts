@@ -130,6 +130,59 @@ export function validateDraft(payload: BlueprintPayload): ValidationReport {
   const errors: ValidationIssue[] = []
   const warnings: ValidationIssue[] = []
 
+  const pushError = (code: string, field: string, message: string) =>
+    errors.push({ code, severity: 'error', field, message })
+
+  // --- Schema-level checks (mirror of backend/app/schemas/blueprint.py) ---
+  // These catch drafts that Pydantic would reject with a 422 before any
+  // structural validation runs, so the wizard never POSTs a payload the
+  // server refuses.
+
+  const profile = payload.business_profile
+  if (profile.model_type.trim().length === 0) {
+    pushError('INVALID_BUSINESS_PROFILE', 'business_profile.model_type', 'Model type is required.')
+  }
+  if (profile.stage.trim().length === 0) {
+    pushError('INVALID_BUSINESS_PROFILE', 'business_profile.stage', 'Stage is required.')
+  }
+  if (profile.industry.trim().length === 0) {
+    pushError('INVALID_BUSINESS_PROFILE', 'business_profile.industry', 'Industry is required.')
+  }
+  if (profile.geography.trim().length === 0) {
+    pushError('INVALID_BUSINESS_PROFILE', 'business_profile.geography', 'Geography is required.')
+  }
+
+  if (payload.financials.target_runway_months < 1) {
+    pushError(
+      'INVALID_TARGET_RUNWAY',
+      'financials.target_runway_months',
+      'Target runway must be at least 1 month.',
+    )
+  }
+
+  for (const [i, member] of payload.cost_structure.team.entries()) {
+    const base = `cost_structure.team[${i}]`
+    if (member.role.trim().length === 0) {
+      pushError('INVALID_TEAM_MEMBER', `${base}.role`, 'Team member role is required.')
+    }
+    if (member.salary_annual < 0) {
+      pushError('INVALID_TEAM_MEMBER', `${base}.salary_annual`, 'Salary cannot be negative.')
+    }
+    if (member.hire_month < 0) {
+      pushError('INVALID_TEAM_MEMBER', `${base}.hire_month`, 'Hire month cannot be negative.')
+    }
+  }
+
+  for (const [i, round] of payload.financials.funding_rounds.entries()) {
+    const base = `financials.funding_rounds[${i}]`
+    if (round.amount <= 0) {
+      pushError('INVALID_FUNDING_ROUND', `${base}.amount`, 'Funding round amount must be positive.')
+    }
+    if (round.month < 0) {
+      pushError('INVALID_FUNDING_ROUND', `${base}.month`, 'Funding round month cannot be negative.')
+    }
+  }
+
   const streams = payload.revenue_engine.streams
   if (!streams || streams.length === 0) {
     errors.push({

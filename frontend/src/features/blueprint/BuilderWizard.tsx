@@ -92,10 +92,12 @@ export default function BuilderWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.name, draft.payload.business_profile.industry])
 
-  // Debounced version save on every payload change after creation.
+  // Debounced version save on every payload change after creation. Skip
+  // payloads that fail local validation — the server would reject them with a
+  // 422 anyway (schema or structural), and the rejection would be noise.
   const debouncedPayload = useDebounced(draft.payload, 800)
   useEffect(() => {
-    if (!needsCreate && debouncedPayload) {
+    if (!needsCreate && debouncedPayload && !hasErrors) {
       addVersion.mutate(debouncedPayload)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
