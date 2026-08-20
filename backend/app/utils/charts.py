@@ -164,3 +164,63 @@ def cohort_percentile_gauge(score: float, percentile: float) -> bytes:
 def chart_sha256(png_bytes: bytes) -> str:
     """Stable content hash for dedup/caching chart PNGs."""
     return hashlib.sha256(png_bytes).hexdigest()
+
+
+def sweep_heatmap(grid_points: list[dict[str, Any]], param_name: str) -> bytes:
+    """
+    2D heatmap: X=param_value, color=survival_rate.
+    grid_points: list of {"param_value": float, "survival_rate": float}
+    """
+    _apply_style()
+
+    values = [pt["param_value"] for pt in grid_points]
+    survivals = [pt["survival_rate"] * 100 for pt in grid_points]
+
+    fig, ax = plt.subplots(figsize=(10, 2.5))
+    # Create 1-row heatmap
+    data = np.array([survivals])
+    im = ax.imshow(data, aspect="auto", cmap="RdYlGn", vmin=0, vmax=100)
+    ax.set_xticks(range(len(values)))
+    ax.set_xticklabels(
+        [f"{v:.3f}" for v in values], rotation=45, ha="right", fontsize=8
+    )
+    ax.set_yticks([])
+    ax.set_title(f"Survival Rate vs {param_name.replace('_', ' ').title()}", fontsize=11)
+
+    # Annotate cells
+    for i, s in enumerate(survivals):
+        ax.text(
+            i, 0, f"{s:.0f}%", ha="center", va="center",
+            fontsize=9, color="black" if 30 < s < 75 else "white", fontweight="bold",
+        )
+
+    plt.colorbar(im, ax=ax, orientation="horizontal", pad=0.4, label="Survival Rate (%)")
+    fig.tight_layout()
+    return _save_to_bytes(fig)
+
+
+def survival_line_chart(grid_points: list[dict[str, Any]], param_name: str) -> bytes:
+    """
+    Line chart of survival rate across parameter values.
+    Shows P25/P75 band as shaded area.
+    """
+    _apply_style()
+    fig, ax = plt.subplots(figsize=(9, 4))
+    values = [pt["param_value"] for pt in grid_points]
+    survival = [pt["survival_rate"] * 100 for pt in grid_points]
+    p25 = [pt.get("p25_runway", 0) for pt in grid_points]
+    p75 = [pt.get("p75_runway", 24) for pt in grid_points]
+
+    ax.plot(
+        values, survival, color="#3b82f6", linewidth=2.5,
+        marker="o", markersize=5, label="Survival Rate %",
+    )
+    ax.fill_between(values, p25, p75, alpha=0.15, color="#3b82f6", label="P25-P75 Runway")
+    ax.axhline(50, color="#eab308", linewidth=1, linestyle="--", label="50% threshold")
+
+    ax.set_xlabel(param_name.replace("_", " ").title())
+    ax.set_ylabel("Survival Rate (%)")
+    ax.set_title(f"Survival Rate vs {param_name.replace('_', ' ').title()}")
+    ax.legend(facecolor="#1e293b", edgecolor="#334155")
+    ax.grid(True, alpha=0.3)
+    return _save_to_bytes(fig)

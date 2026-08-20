@@ -47,6 +47,10 @@ async def build_data_pack(
         elif key == DataInputKey.TICK_LOGS:
             pack[key.value] = await _fetch_tick_logs(run_id, db)
         elif key == DataInputKey.MC_AGGREGATES:
+            # TODO(Day 09): section 14 (Sensitivity Analysis) — when a what-if
+            # sweep result is cached for this run, merge it into the pack here
+            # so the section writer can reference the sweep grid + breakeven.
+            # Optional now: the MC aggregates alone keep the section renderable.
             pack[key.value] = _extract_mc_aggregates(run)
         elif key == DataInputKey.FORGE_VULNERABILITIES:
             pack[key.value] = await _fetch_vulnerabilities(run, db)

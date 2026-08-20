@@ -10,10 +10,21 @@ from app.utils.charts import (
     cohort_percentile_gauge,
     kill_vector_bar,
     mc_distribution_histogram,
+    survival_line_chart,
+    sweep_heatmap,
     tornado_chart,
 )
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+
+def _grid_points() -> list[dict[str, Any]]:
+    return [
+        {"param_value": 0.03, "survival_rate": 1.0, "p25_runway": 24.0, "p75_runway": 24.0},
+        {"param_value": 0.05, "survival_rate": 0.8, "p25_runway": 18.0, "p75_runway": 24.0},
+        {"param_value": 0.07, "survival_rate": 0.4, "p25_runway": 12.0, "p75_runway": 20.0},
+        {"param_value": 0.10, "survival_rate": 0.1, "p25_runway": 8.0, "p75_runway": 14.0},
+    ]
 
 
 def _ticks() -> list[dict[str, Any]]:
@@ -93,3 +104,16 @@ def test_charts_are_deterministic() -> None:
     assert chart_sha256(mc_distribution_histogram(_mc())) == chart_sha256(
         mc_distribution_histogram(_mc())
     )
+    assert chart_sha256(sweep_heatmap(_grid_points(), "churn")) == chart_sha256(
+        sweep_heatmap(_grid_points(), "churn")
+    )
+
+
+def test_sweep_heatmap_returns_png() -> None:
+    png = sweep_heatmap(_grid_points(), "monthly_churn")
+    assert png[:8] == PNG_MAGIC
+
+
+def test_survival_line_chart_returns_png() -> None:
+    png = survival_line_chart(_grid_points(), "monthly_churn")
+    assert png[:8] == PNG_MAGIC
