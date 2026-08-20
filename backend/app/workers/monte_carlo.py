@@ -21,7 +21,6 @@ from typing import Any
 import structlog
 from redis.asyncio import Redis
 
-from app.core.config import get_settings
 from app.engine.events import apply_event
 from app.engine.loop import tick
 from app.engine.state import compile_blueprint
@@ -411,6 +410,40 @@ def run_monte_carlo(run_id: str) -> None:
                     run.result = result.model_dump(mode="json")
                 run.finished_at = datetime.now(UTC)
                 await session.commit()
+
+                # Anonymized benchmark snapshot (best-effort; never fails the run).
+                if run.status == RunStatus.COMPLETED:
+                    try:
+                        from sqlalchemy import select
+
+                        from app.models.user import User
+                        from app.models.workspace import Membership, Role
+                        from app.services.benchmark.aggregator import snapshot_run
+
+                        owner = await session.scalar(
+                            select(User)
+                            .join(Membership, Membership.user_id == User.id)
+                            .where(
+                                Membership.workspace_id == run.workspace_id,
+                                Membership.role == Role.OWNER,
+                            )
+                        )
+                        kill_vectors = [
+                            {"type": cause, "frequency": count}
+                            for cause, count in (result.kill_vectors or {}).items()
+                        ]
+                        await snapshot_run(
+                            run_id=run_id,
+                            survival_rate=result.survival_rate,
+                            median_lifespan=result.median_lifespan_months,
+                            resilience_score=result.resilience_score,
+                            kill_vectors=kill_vectors,
+                            industry=owner.industry if owner else None,
+                            stage=owner.stage if owner else None,
+                            db=session,
+                        )
+                    except Exception:  # noqa: BLE001 - benchmark is best-effort
+                        logger.warning("benchmark snapshot failed", run_id=run_id, exc_info=True)
 
                 await _publish(redis, run_id, "status", {"status": run.status})
                 if redis is not None:
