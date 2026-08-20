@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import CashCurve from '@/components/charts/CashCurve'
 import LiveFeed from '@/features/simulation/LiveFeed'
+import { CopilotPanel } from '@/features/copilot/CopilotPanel'
 import DecisionModal from '@/features/warroom/DecisionModal'
 import { useControl, useDecide, useSimulation, useTicks } from '@/features/simulation/api'
 import type { RunStatus, StrategicOption } from '@/features/simulation/types'
@@ -209,7 +210,9 @@ export default function RunnerPage() {
           // Defer — close the modal but leave the run awaiting a decision.
           if (!open) setModalDismissed(true)
         }}
+        runId={runId}
       />
+      <CopilotPanel runId={runId ?? ''} />
     </div>
   )
 }

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import type { HurdleEvent, StrategicOption } from '@/features/simulation/types'
+import { DecisionCoach } from './DecisionCoach'
 
 interface DecisionModalProps {
   open: boolean
@@ -18,6 +19,7 @@ interface DecisionModalProps {
   onConfirm: (option: StrategicOption) => void
   submitting?: boolean
   onOpenChange: (open: boolean) => void
+  runId?: string
 }
 
 /** Inline 12-month cash projection sparkline for an option card. */
@@ -65,6 +67,7 @@ export default function DecisionModal({
   onConfirm,
   submitting,
   onOpenChange,
+  runId,
 }: DecisionModalProps) {
   const [selected, setSelected] = useState<StrategicOption | null>(null)
 
@@ -156,6 +159,10 @@ export default function DecisionModal({
               })}
             </div>
           </div>
+        )}
+
+        {runId && selected && (
+          <DecisionCoach runId={runId} optionLabel={selected.name} />
         )}
 
         <div className="flex justify-end gap-2">
