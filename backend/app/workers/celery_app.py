@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import get_settings
 
@@ -20,6 +21,14 @@ celery_app = Celery(
     broker_transport_options={"socket_timeout": 1, "socket_connect_timeout": 1},
 )
 
+# Periodic drift-monitor sweep — daily at 07:00 UTC.
+celery_app.conf.beat_schedule = {
+    "drift-monitor-daily": {
+        "task": "forge.check_all_blueprints",
+        "schedule": crontab(hour=7, minute=0),
+    },
+}
+
 
 def _task(name: str) -> Callable[[Callable[..., Any]], Any]:
     # Celery's untyped decorator returns Any; cast keeps mypy quiet.
@@ -34,4 +43,4 @@ def ping() -> str:
 # Import task modules so their tasks register with the worker. The API enqueues
 # these lazily (e.g. simulation_service -> monte_carlo), but the worker process
 # must see them at startup or Celery rejects the jobs as "unregistered".
-from app.workers import email_tasks, monte_carlo, report_job  # noqa: E402,F401
+from app.workers import drift_monitor, email_tasks, monte_carlo, report_job  # noqa: E402,F401
