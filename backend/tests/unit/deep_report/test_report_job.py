@@ -33,3 +33,16 @@ def test_enterprise_tier_job_completes_with_fallback() -> None:
     result = _run("job-ent", "run-missing", "enterprise")
     assert result["status"] == "complete"
     assert result["sections_completed"] == 21
+
+
+def test_job_writes_pdf_for_missing_run() -> None:
+    # PDF assembly is best-effort: with no run rows it renders an empty-data
+    # report to the storage dir instead of failing the job.
+    result = _run("job-pdf", "run-missing", "free")
+    assert result["status"] == "complete"
+    assert result["pdf_path"] is not None
+    from pathlib import Path
+
+    assert Path(result["pdf_path"]).exists()
+    assert Path(result["pdf_path"]).read_bytes().startswith(b"%PDF")
+    Path(result["pdf_path"]).unlink()

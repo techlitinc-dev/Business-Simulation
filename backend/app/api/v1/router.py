@@ -10,6 +10,7 @@ from .endpoints import (
     auth,
     billing,
     blueprints,
+    deep_report,
     leaderboard,
     reports,
     scenarios,
@@ -27,6 +28,7 @@ api_router.include_router(workspaces.router)
 api_router.include_router(blueprints.router)
 api_router.include_router(simulations.router)
 api_router.include_router(reports.router)
+api_router.include_router(deep_report.router)
 api_router.include_router(billing.router)
 api_router.include_router(webhooks.router)
 api_router.include_router(scenarios.router)
