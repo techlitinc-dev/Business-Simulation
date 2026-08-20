@@ -34,4 +34,4 @@ def ping() -> str:
 # Import task modules so their tasks register with the worker. The API enqueues
 # these lazily (e.g. simulation_service -> monte_carlo), but the worker process
 # must see them at startup or Celery rejects the jobs as "unregistered".
-from app.workers import email_tasks, monte_carlo  # noqa: E402,F401
+from app.workers import email_tasks, monte_carlo, report_job  # noqa: E402,F401
