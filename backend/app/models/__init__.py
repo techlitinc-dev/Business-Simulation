@@ -5,6 +5,7 @@ Alembic's env.py (which imports this package) picks up its tables via
 Base.metadata.
 """
 
+from app.models.actuals import ActualsRecord  # noqa: F401
 from app.models.api_key import ApiKey  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.billing import Subscription, UsageRecord  # noqa: F401
