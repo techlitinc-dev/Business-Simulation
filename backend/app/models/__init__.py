@@ -11,6 +11,7 @@ from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.benchmark import BenchmarkSnapshot  # noqa: F401
 from app.models.billing import Subscription, UsageRecord  # noqa: F401
 from app.models.blueprint import Blueprint, BlueprintVersion  # noqa: F401
+from app.models.portfolio import Portfolio, PortfolioMembership  # noqa: F401
 from app.models.report import Report  # noqa: F401
 from app.models.scenario import Scenario, ScenarioCategory  # noqa: F401
 from app.models.simulation import (  # noqa: F401
