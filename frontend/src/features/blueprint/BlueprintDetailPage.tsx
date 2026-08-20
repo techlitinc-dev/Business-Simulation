@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Network, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, FlaskConical, Network, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -67,6 +67,11 @@ export default function BlueprintDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <PublishScenarioModal defaultBlueprintId={blueprint.id} />
+            <Button variant="outline" asChild>
+              <Link to={`/app/blueprints/${blueprint.id}/whatif`}>
+                <FlaskConical className="h-4 w-4" /> What-If Lab
+              </Link>
+            </Button>
             <Button variant="outline" asChild>
               <Link to={`/app/blueprints/${blueprint.id}/edit`}>
                 <Pencil className="h-4 w-4" /> Edit
