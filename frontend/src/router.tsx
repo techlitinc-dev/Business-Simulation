@@ -34,6 +34,7 @@ import BlueprintCanvasPage from '@/features/blueprint/CanvasView'
 import BuilderWizard from '@/features/blueprint/BuilderWizard'
 import WhatIfLabRoute from '@/features/whatif/WhatIfLabRoute'
 import ActualsRoute from '@/features/actuals/ActualsRoute'
+import PortfolioRoute from '@/features/portfolio/PortfolioRoute'
 import SimulationListPage from '@/features/simulation/SimulationListPage'
 import RunnerPage from '@/features/simulation/RunnerPage'
 import GhostSetupPage from '@/features/ghost/GhostSetupPage'
@@ -121,6 +122,10 @@ export const router = createBrowserRouter([
               {
                 path: 'blueprints/:blueprintId/actuals',
                 element: <ActualsRoute />,
+              },
+              {
+                path: 'portfolio/:portfolioId',
+                element: <PortfolioRoute />,
               },
               {
                 path: 'simulations',

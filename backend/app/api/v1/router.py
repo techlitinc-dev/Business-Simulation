@@ -18,6 +18,7 @@ from .endpoints import (
     deep_report,
     investor,
     leaderboard,
+    portfolio,
     reports,
     scenarios,
     simulations,
@@ -49,6 +50,7 @@ api_router.include_router(copilot.router)
 api_router.include_router(benchmark.router)
 api_router.include_router(investor.router)
 api_router.include_router(dataroom.router)
+api_router.include_router(portfolio.router)
 
 
 @api_router.get("/health")
