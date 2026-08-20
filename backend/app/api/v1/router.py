@@ -12,6 +12,7 @@ from .endpoints import (
     auth,
     billing,
     blueprints,
+    copilot,
     deep_report,
     leaderboard,
     reports,
@@ -41,6 +42,7 @@ api_router.include_router(admin.router)
 api_router.include_router(whatif.router)
 api_router.include_router(actuals.router)
 api_router.include_router(advisory.router)
+api_router.include_router(copilot.router)
 
 
 @api_router.get("/health")
