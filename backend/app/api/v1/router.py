@@ -14,6 +14,7 @@ from .endpoints import (
     billing,
     blueprints,
     copilot,
+    dataroom,
     deep_report,
     investor,
     leaderboard,
@@ -47,6 +48,7 @@ api_router.include_router(advisory.router)
 api_router.include_router(copilot.router)
 api_router.include_router(benchmark.router)
 api_router.include_router(investor.router)
+api_router.include_router(dataroom.router)
 
 
 @api_router.get("/health")

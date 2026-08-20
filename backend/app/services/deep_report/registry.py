@@ -4,6 +4,7 @@ from app.services.deep_report.manifest import (
     ReportTier,
     SectionDef,
 )
+from app.services.deep_report.manifests.lender_manifest import LENDER_MANIFEST
 
 # (section_number, title, page_budget, data_inputs, prompt_template, ai_generated, tier_minimum)
 _SECTIONS: list[tuple[int, str, int, list[DataInputKey], str, bool, ReportTier]] = [
@@ -84,6 +85,7 @@ FULL_MANIFEST = ReportManifest(
 
 MANIFEST_REGISTRY: dict[str, ReportManifest] = {
     "resilience_audit": FULL_MANIFEST,
+    "lender_report": LENDER_MANIFEST,
 }
 
 
