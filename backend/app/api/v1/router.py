@@ -17,6 +17,7 @@ from .endpoints import (
     simulations,
     users,
     webhooks,
+    whatif,
     workspaces,
 )
 
@@ -35,6 +36,7 @@ api_router.include_router(scenarios.router)
 api_router.include_router(leaderboard.router)
 api_router.include_router(api_keys.router)
 api_router.include_router(admin.router)
+api_router.include_router(whatif.router)
 
 
 @api_router.get("/health")

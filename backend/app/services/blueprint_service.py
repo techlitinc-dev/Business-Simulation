@@ -304,6 +304,43 @@ async def list_versions(
     return [BlueprintVersionResponse.model_validate(row) for row in rows]
 
 
+async def create_version_from_override(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    blueprint_id: str,
+    param: str,
+    value: float,
+    label: str = "What-If Override",
+) -> BlueprintVersion:
+    """
+    Fork a blueprint with one parameter override applied.
+
+    Workspace-scoped like ``add_version``: loads the caller's blueprint,
+    deep-copies its latest payload, applies the dot-notation override, and
+    inserts the next version row. ``label`` is accepted for API symmetry but
+    the model has no label column yet — extend the schema to persist it.
+    """
+    from app.services.whatif.sweep import _patch_payload
+
+    blueprint = await _get_workspace_blueprint(db, workspace_id, blueprint_id)
+    current = await _get_workspace_version(db, blueprint.id, blueprint.current_version)
+    overridden = _patch_payload(dict(current.payload), param, value)
+
+    next_version = blueprint.current_version + 1
+    version_row = BlueprintVersion(
+        blueprint_id=blueprint.id,
+        version=next_version,
+        payload=overridden,
+        vulnerabilities=list(current.vulnerabilities or []),
+    )
+    db.add(version_row)
+    blueprint.current_version = next_version
+    await db.commit()
+    await db.refresh(version_row)
+    return version_row
+
+
 async def get_version_payload(
     db: AsyncSession,
     *,
