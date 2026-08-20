@@ -10,6 +10,7 @@ from .endpoints import (
     advisory,
     api_keys,
     auth,
+    benchmark,
     billing,
     blueprints,
     copilot,
@@ -43,6 +44,7 @@ api_router.include_router(whatif.router)
 api_router.include_router(actuals.router)
 api_router.include_router(advisory.router)
 api_router.include_router(copilot.router)
+api_router.include_router(benchmark.router)
 
 
 @api_router.get("/health")

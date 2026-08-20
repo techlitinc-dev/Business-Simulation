@@ -11,6 +11,7 @@ import { toastError, toastSuccess } from '@/lib/toast'
 import { copyToClipboard } from '@/lib/utils'
 import { useExportPdf, useReport, useShareReport } from '@/features/reports/hooks'
 import type { ReportOut } from '@/features/reports/hooks'
+import { CohortChart } from '@/features/benchmark/CohortChart'
 import { DeepReportPage } from './deep_report/DeepReportPage'
 
 const SEVERITY_STYLES: Record<string, string> = {
@@ -65,6 +66,15 @@ export function ReportView({ report }: ReportViewProps) {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Peer Comparison</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CohortChart score={resilience_score} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <Card>

@@ -22,6 +22,8 @@ export default function WorkspacePage() {
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null
 
   const [name, setName] = useState(active?.name ?? '')
+  // TODO: persist on the Workspace model — no benchmark_opt_in column yet.
+  const [benchmarkOptIn, setBenchmarkOptIn] = useState(true)
   const updateWorkspace = useUpdateWorkspace(active?.id)
 
   if (!active) {
@@ -77,6 +79,24 @@ export default function WorkspacePage() {
             {updateWorkspace.isPending ? 'Saving…' : 'Save'}
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Benchmarks</CardTitle>
+          <CardDescription>Help improve cohort comparisons for everyone.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <label className="flex items-center gap-2 text-slate-300 text-sm">
+            <input
+              type="checkbox"
+              checked={benchmarkOptIn}
+              onChange={(e) => setBenchmarkOptIn(e.target.checked)}
+              className="rounded"
+            />
+            Share anonymized simulation data to improve cohort benchmarks
+          </label>
+        </CardContent>
       </Card>
     </div>
   )
