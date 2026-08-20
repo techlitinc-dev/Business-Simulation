@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import PublishScenarioModal from '@/features/marketplace/PublishScenarioModal'
+import { AdvisoryBoardPanel } from '@/features/advisory/AdvisoryBoardPanel'
 import ValidationPanel from './ValidationPanel'
 import { useBlueprint, useBlueprints, useDeleteBlueprint } from './api'
 
@@ -170,6 +171,14 @@ export default function BlueprintDetailPage() {
           </CardHeader>
           <CardContent>
             <ValidationPanel blueprintId={blueprint.id} />
+          </CardContent>
+        </Card>
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-base">Advisory Board</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AdvisoryBoardPanel blueprintId={blueprint.id} />
           </CardContent>
         </Card>
       </aside>

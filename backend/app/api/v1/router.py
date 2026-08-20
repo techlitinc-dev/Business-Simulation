@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from .endpoints import (
     actuals,
     admin,
+    advisory,
     api_keys,
     auth,
     billing,
@@ -39,6 +40,7 @@ api_router.include_router(api_keys.router)
 api_router.include_router(admin.router)
 api_router.include_router(whatif.router)
 api_router.include_router(actuals.router)
+api_router.include_router(advisory.router)
 
 
 @api_router.get("/health")
