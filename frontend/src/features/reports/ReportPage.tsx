@@ -6,10 +6,12 @@ import ReactMarkdown from 'react-markdown'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { copyToClipboard } from '@/lib/utils'
 import { useExportPdf, useReport, useShareReport } from '@/features/reports/hooks'
 import type { ReportOut } from '@/features/reports/hooks'
+import { DeepReportPage } from './deep_report/DeepReportPage'
 
 const SEVERITY_STYLES: Record<string, string> = {
   CRITICAL: 'border-red-500/50 bg-red-500/10 text-red-300',
@@ -224,17 +226,28 @@ export default function ReportPage() {
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading report…</p>}
-      {isError && (
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-destructive">
-              Report unavailable — the run must be completed.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-      {report && <ReportView report={report} />}
+      <Tabs defaultValue="audit">
+        <TabsList>
+          <TabsTrigger value="audit">Resilience Audit</TabsTrigger>
+          <TabsTrigger value="deep-dive">Deep-Dive Report</TabsTrigger>
+        </TabsList>
+        <TabsContent value="audit">
+          {isLoading && <p className="text-sm text-muted-foreground">Loading report…</p>}
+          {isError && (
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-sm text-destructive">
+                  Report unavailable — the run must be completed.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {report && <ReportView report={report} />}
+        </TabsContent>
+        <TabsContent value="deep-dive">
+          {runId ? <DeepReportPage runId={runId} /> : null}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

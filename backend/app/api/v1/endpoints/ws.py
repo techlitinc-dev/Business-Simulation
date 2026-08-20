@@ -20,6 +20,7 @@ from app.models.simulation import SimulationEvent, SimulationRun, TickLog
 from app.models.workspace import Membership
 from app.schemas.simulation import SimulationRunResponse
 from app.services.simulation_service import STREAM_CHANNEL
+from app.workers.report_job import REDIS_CHANNEL
 
 router = APIRouter()
 
@@ -146,6 +147,56 @@ async def simulation_ws(websocket: WebSocket, run_id: str) -> None:
         if pubsub is not None:
             try:
                 await pubsub.unsubscribe(STREAM_CHANNEL.format(run_id=run_id))
+                await pubsub.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+@router.websocket("/ws/reports/{job_id}")
+async def report_ws(websocket: WebSocket, job_id: str) -> None:
+    """Live deep-report progress: forwards ``deep_report:{job_id}`` Redis messages.
+
+    The deep-report worker publishes a progress JSON payload per section;
+    this endpoint authenticates the caller and streams those messages to the
+    browser. No membership check applies — the job id is not workspace-scoped.
+    """
+    token = websocket.query_params.get("token", "")
+    user_id = await _authorize(token)
+    await websocket.accept()
+    if user_id is None:
+        await websocket.close(code=4401)
+        return
+
+    redis: Redis | None = None
+    try:
+        from app.api.deps import get_redis
+
+        redis = get_redis()
+    except Exception:  # noqa: BLE001 - no Redis -> close the socket
+        redis = None
+
+    pubsub = None
+    if redis is not None:
+        try:
+            pubsub = redis.pubsub()
+            await pubsub.subscribe(REDIS_CHANNEL.format(job_id=job_id))
+        except Exception:  # noqa: BLE001
+            pubsub = None
+
+    try:
+        if pubsub is not None:
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message is None:
+                    continue
+                if message.get("type") == "message":
+                    await websocket.send_text(str(message["data"]))
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if pubsub is not None:
+            try:
+                await pubsub.unsubscribe(REDIS_CHANNEL.format(job_id=job_id))
                 await pubsub.close()
             except Exception:  # noqa: BLE001
                 pass
