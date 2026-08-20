@@ -12,6 +12,7 @@ import { copyToClipboard } from '@/lib/utils'
 import { useExportPdf, useReport, useShareReport } from '@/features/reports/hooks'
 import type { ReportOut } from '@/features/reports/hooks'
 import { CohortChart } from '@/features/benchmark/CohortChart'
+import { InvestorToolkitPage } from '@/features/investor/InvestorToolkitPage'
 import { DeepReportPage } from './deep_report/DeepReportPage'
 
 const SEVERITY_STYLES: Record<string, string> = {
@@ -240,6 +241,7 @@ export default function ReportPage() {
         <TabsList>
           <TabsTrigger value="audit">Resilience Audit</TabsTrigger>
           <TabsTrigger value="deep-dive">Deep-Dive Report</TabsTrigger>
+          <TabsTrigger value="investor">Investor Toolkit</TabsTrigger>
         </TabsList>
         <TabsContent value="audit">
           {isLoading && <p className="text-sm text-muted-foreground">Loading report…</p>}
@@ -256,6 +258,9 @@ export default function ReportPage() {
         </TabsContent>
         <TabsContent value="deep-dive">
           {runId ? <DeepReportPage runId={runId} /> : null}
+        </TabsContent>
+        <TabsContent value="investor">
+          {runId ? <InvestorToolkitPage runId={runId} /> : null}
         </TabsContent>
       </Tabs>
     </div>
