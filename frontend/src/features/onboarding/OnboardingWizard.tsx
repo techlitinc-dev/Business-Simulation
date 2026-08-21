@@ -10,6 +10,7 @@ import { apiFetch } from '@/lib/api-client'
 import { useAuthStore, type UserOut } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import FearStep from './FearStep'
+import IndustryPackSelector from './IndustryPackSelector'
 import IndustryStep from './IndustryStep'
 import StageStep from './StageStep'
 
@@ -27,10 +28,11 @@ export function clearOnboardingSkip() {
   localStorage.removeItem(SKIP_KEY)
 }
 
-const STEPS = [IndustryStep, StageStep, FearStep]
+const STEPS = [IndustryPackSelector, IndustryStep, StageStep, FearStep]
 
 export default function OnboardingWizard() {
   const [step, setStep] = useState(0)
+  const [packId, setPackId] = useState('')
   const [industry, setIndustry] = useState('')
   const [stage, setStage] = useState('')
   const [fear, setFear] = useState('')
@@ -43,7 +45,7 @@ export default function OnboardingWizard() {
       apiFetch<UserOut>('/api/v1/users/me', {
         method: 'PATCH',
         body: JSON.stringify({
-          industry,
+          industry: packId || industry,
           stage,
           primary_fear: fear,
         }),
@@ -56,9 +58,10 @@ export default function OnboardingWizard() {
   })
 
   const canAdvance =
-    (step === 0 && industry.length > 0) ||
-    (step === 1 && stage.length > 0) ||
-    (step === 2 && fear.trim().length >= 10)
+    (step === 0 && packId.length > 0) ||
+    (step === 1 && industry.length > 0) ||
+    (step === 2 && stage.length > 0) ||
+    (step === 3 && fear.trim().length >= 10)
 
   const handleNext = () => {
     if (step < STEPS.length - 1) setStep(step + 1)
@@ -98,11 +101,12 @@ export default function OnboardingWizard() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
             >
-              {step === 0 && (
+              {step === 0 && <IndustryPackSelector value={packId} onChange={setPackId} />}
+              {step === 1 && (
                 <IndustryStep value={industry} onChange={setIndustry} />
               )}
-              {step === 1 && <StageStep value={stage} onChange={setStage} />}
-              {step === 2 && <FearStep value={fear} onChange={setFear} />}
+              {step === 2 && <StageStep value={stage} onChange={setStage} />}
+              {step === 3 && <FearStep value={fear} onChange={setFear} />}
             </motion.div>
           </AnimatePresence>
         </CardContent>

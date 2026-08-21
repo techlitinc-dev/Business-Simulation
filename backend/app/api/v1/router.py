@@ -19,6 +19,7 @@ from .endpoints import (
     deep_report,
     export,
     gamification,
+    industry_packs,
     integrations,
     investor,
     journal,
@@ -65,6 +66,7 @@ api_router.include_router(comments.router)
 api_router.include_router(export.router)
 api_router.include_router(integrations.router)
 api_router.include_router(gamification.router)
+api_router.include_router(industry_packs.router)
 
 
 @api_router.get("/health")

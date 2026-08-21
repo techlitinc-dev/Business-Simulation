@@ -5,19 +5,28 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import OnboardingWizard from '../OnboardingWizard'
 
-vi.mock('@/lib/api-client', () => ({
-  apiFetch: vi.fn(() =>
-    Promise.resolve({
+const { apiFetchMock } = vi.hoisted(() => ({
+  apiFetchMock: vi.fn((path: string) => {
+    if (path === '/api/v1/industry-packs') {
+      return Promise.resolve([
+        { id: 'saas', name: 'SaaS Pack', description: 'Pre-tuned for SaaS' },
+      ])
+    }
+    return Promise.resolve({
       id: 'u1',
       email: 'a@b.co',
       name: 'A',
       is_verified: false,
-      industry: 'SaaS',
+      industry: 'saas',
       stage: 'Pre-Seed',
       primary_fear: 'My CAC is too high',
       onboarding_completed: true,
-    }),
-  ),
+    })
+  }),
+}))
+
+vi.mock('@/lib/api-client', () => ({
+  apiFetch: (...args: Parameters<typeof apiFetchMock>) => apiFetchMock(...args),
 }))
 
 vi.mock('@/stores/auth-store', () => ({
@@ -41,6 +50,11 @@ function renderWizard() {
 }
 
 async function goToStep2(user: ReturnType<typeof userEvent.setup>) {
+  // Step 1: pack selector
+  await screen.findByText('Pick a starting playbook')
+  await user.click(await screen.findByText('SaaS Pack'))
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+  await screen.findByText('What industry are you in?')
   await user.click(screen.getByText('SaaS'))
   await user.click(screen.getByRole('button', { name: 'Next' }))
   await screen.findByText('What stage are you at?')
@@ -54,26 +68,33 @@ async function goToStep3(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('OnboardingWizard', () => {
-  it('navigates through the three steps', async () => {
+  it('navigates through the four steps', async () => {
     const user = userEvent.setup()
     renderWizard()
 
-    // Step 1: industry
-    expect(screen.getByText('What industry are you in?')).toBeInTheDocument()
+    // Step 1: industry pack
+    expect(await screen.findByText('Pick a starting playbook')).toBeInTheDocument()
     const next = screen.getByRole('button', { name: 'Next' })
     expect(next).toBeDisabled()
-    await user.click(screen.getByText('SaaS'))
+    await user.click(await screen.findByText('SaaS Pack'))
     expect(next).toBeEnabled()
     await user.click(next)
 
-    // Step 2: stage
-    expect(await screen.findByText('What stage are you at?')).toBeInTheDocument()
+    // Step 2: industry
+    expect(await screen.findByText('What industry are you in?')).toBeInTheDocument()
     const next2 = screen.getByRole('button', { name: 'Next' })
     expect(next2).toBeDisabled()
-    await user.click(screen.getByText('Pre-Seed'))
+    await user.click(screen.getByText('SaaS'))
     await user.click(next2)
 
-    // Step 3: fear
+    // Step 3: stage
+    expect(await screen.findByText('What stage are you at?')).toBeInTheDocument()
+    const next3 = screen.getByRole('button', { name: 'Next' })
+    expect(next3).toBeDisabled()
+    await user.click(screen.getByText('Pre-Seed'))
+    await user.click(next3)
+
+    // Step 4: fear
     expect(await screen.findByText('What scares you most?')).toBeInTheDocument()
     const finish = screen.getByRole('button', { name: 'Finish' })
     expect(finish).toBeDisabled()
@@ -97,19 +118,18 @@ describe('OnboardingWizard', () => {
 
   it('submit calls api-client with the right body', async () => {
     const user = userEvent.setup()
-    const { apiFetch } = await import('@/lib/api-client')
     renderWizard()
 
     await goToStep3(user)
     await user.click(screen.getByText('CAC too high'))
     await user.click(screen.getByRole('button', { name: 'Finish' }))
 
-    expect(apiFetch).toHaveBeenCalledWith(
+    expect(apiFetchMock).toHaveBeenCalledWith(
       '/api/v1/users/me',
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({
-          industry: 'SaaS',
+          industry: 'saas',
           stage: 'Pre-Seed',
           primary_fear: 'CAC too high',
         }),
