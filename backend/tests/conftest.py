@@ -7,12 +7,14 @@ import os
 # which keeps one connection open so the in-memory DB persists) and worker tasks
 # that build their own engine via settings.database_url attach to the SAME named
 # in-memory DB, so per-task engines see the schema the fixture creates.
-os.environ.setdefault(
-    "DATABASE_URL",
-    "sqlite+aiosqlite:///file:forge_test?mode=memory&cache=shared&uri=true",
+# Deliberately a hard assignment, not setdefault: inside Docker the compose file
+# exports DATABASE_URL=postgresql+... and setdefault would leave it in place,
+# letting the create_all/drop_all fixtures run against the real database.
+os.environ["DATABASE_URL"] = (
+    "sqlite+aiosqlite:///file:forge_test?mode=memory&cache=shared&uri=true"
 )
 # Cheap argon2 hashing keeps the test suite fast.
-os.environ.setdefault("FORGE_CHEAP_HASH", "1")
+os.environ["FORGE_CHEAP_HASH"] = "1"
 
 import pytest
 import pytest_asyncio
