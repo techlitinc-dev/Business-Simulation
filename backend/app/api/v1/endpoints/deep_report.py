@@ -57,7 +57,7 @@ async def request_deep_report(
         manifest = get_manifest(body.report_type)
     except KeyError as exc:
         raise HTTPException(
-            status_code=400, detail=f"Unknown report type: {body.report_type}"
+            status_code=422, detail=f"Unknown report type: {body.report_type}"
         ) from exc
     sections = manifest.sections_for_tier(tier_enum)
 
