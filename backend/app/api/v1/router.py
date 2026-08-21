@@ -17,6 +17,8 @@ from .endpoints import (
     copilot,
     dataroom,
     deep_report,
+    export,
+    integrations,
     investor,
     journal,
     leaderboard,
@@ -59,6 +61,8 @@ api_router.include_router(sso.router)
 api_router.include_router(scim.router)
 api_router.include_router(journal.router)
 api_router.include_router(comments.router)
+api_router.include_router(export.router)
+api_router.include_router(integrations.router)
 
 
 @api_router.get("/health")

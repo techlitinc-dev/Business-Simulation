@@ -23,6 +23,7 @@ import SecurityPage from '@/features/settings/SecurityPage'
 import SettingsLayout from '@/features/settings/SettingsLayout'
 import WorkspacePage from '@/features/settings/WorkspacePage'
 import ApiKeysPanel from '@/features/settings/ApiKeysPanel'
+import IntegrationsPage from '@/features/settings/IntegrationsPage'
 import AdminRoute from '@/features/settings/admin/AdminRoute'
 import AdminDashboardPage from '@/features/settings/admin/AdminDashboardPage'
 import AdminUsersPage from '@/features/settings/admin/AdminUsersPage'
@@ -190,6 +191,7 @@ export const router = createBrowserRouter([
                   { path: 'members', element: <MembersPage /> },
                   { path: 'security', element: <SecurityPage /> },
                   { path: 'api-keys', element: <ApiKeysPanel /> },
+                  { path: 'integrations', element: <IntegrationsPage /> },
                 ],
               },
               {

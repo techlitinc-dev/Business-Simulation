@@ -23,4 +23,5 @@ from app.models.simulation import (  # noqa: F401
     TickLog,
 )
 from app.models.user import User  # noqa: F401
+from app.models.webhook_registration import WebhookRegistration  # noqa: F401
 from app.models.workspace import Invite, Membership, Role, Workspace  # noqa: F401
