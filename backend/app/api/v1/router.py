@@ -13,6 +13,7 @@ from .endpoints import (
     benchmark,
     billing,
     blueprints,
+    comments,
     copilot,
     dataroom,
     deep_report,
@@ -57,6 +58,7 @@ api_router.include_router(portfolio.router)
 api_router.include_router(sso.router)
 api_router.include_router(scim.router)
 api_router.include_router(journal.router)
+api_router.include_router(comments.router)
 
 
 @api_router.get("/health")
