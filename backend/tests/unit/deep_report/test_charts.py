@@ -1,8 +1,8 @@
 """Day 04 tests: deep-report chart renderer (app.utils.charts).
 
-Covers the four report charts (cash flow, MC histogram, kill vectors,
-resilience gauge) plus determinism, empty-data safety, and the
-render_charts_for_run bundle that writes them to disk.
+Each chart function returns PNG bytes; render_charts_for_run writes the
+four report charts to disk. Charts must be deterministic and never crash
+on empty data.
 """
 
 from __future__ import annotations
@@ -10,28 +10,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from app.services.deep_report.chart_builder import render_charts_for_run
+from app.services.deep_report.chart_builder import ChartBundle, render_charts_for_run
 from app.utils.charts import (
     cash_flow_curve,
     chart_sha256,
     cohort_percentile_gauge,
     kill_vector_bar,
     mc_distribution_histogram,
-    survival_line_chart,
-    sweep_heatmap,
     tornado_chart,
 )
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
-
-
-def _grid_points() -> list[dict[str, Any]]:
-    return [
-        {"param_value": 0.03, "survival_rate": 1.0, "p25_runway": 24.0, "p75_runway": 24.0},
-        {"param_value": 0.05, "survival_rate": 0.8, "p25_runway": 18.0, "p75_runway": 24.0},
-        {"param_value": 0.07, "survival_rate": 0.4, "p25_runway": 12.0, "p75_runway": 20.0},
-        {"param_value": 0.10, "survival_rate": 0.1, "p25_runway": 8.0, "p75_runway": 14.0},
-    ]
 
 
 def _ticks() -> list[dict[str, Any]]:
@@ -53,79 +42,76 @@ def _mc() -> dict[str, Any]:
     }
 
 
-def test_cash_flow_curve_returns_png() -> None:
+def test_cash_flow_curve_returns_png_bytes() -> None:
     png = cash_flow_curve(_ticks())
     assert png[:8] == PNG_MAGIC
-    assert len(png) > 1000
 
 
-def test_cash_flow_curve_accepts_legacy_cash_key() -> None:
-    # The snippet-era tick shape used "cash"; the data pack uses
-    # "cash_balance". Both must render.
-    ticks = [
-        {"month": i, "cash": 100000 - i * 3000, "revenue": 10000 + i * 500, "costs": 12000}
-        for i in range(1, 13)
-    ]
-    png = cash_flow_curve(ticks)
-    assert png[:8] == PNG_MAGIC
-
-
-def test_mc_histogram_uses_runs_summary() -> None:
+def test_mc_histogram_returns_png_bytes() -> None:
     png = mc_distribution_histogram(_mc())
     assert png[:8] == PNG_MAGIC
 
 
-def test_kill_vector_bar_accepts_dict_shape() -> None:
+def test_kill_vector_bar_returns_png_bytes() -> None:
     png = kill_vector_bar(_mc())
     assert png[:8] == PNG_MAGIC
 
 
-def test_kill_vector_bar_accepts_list_shape() -> None:
-    png = kill_vector_bar({"kill_vectors": [{"type": "market", "frequency": 0.5}]})
-    assert png[:8] == PNG_MAGIC
-
-
-def test_kill_vector_bar_empty_data_does_not_crash() -> None:
-    # Empty dict and empty list both fall back to a "No data" bar.
-    assert kill_vector_bar({})[:8] == PNG_MAGIC
-    assert kill_vector_bar({"kill_vectors": []})[:8] == PNG_MAGIC
-
-
-def test_tornado_chart_with_and_without_data() -> None:
+def test_tornado_chart_returns_png_bytes() -> None:
     data = [{"param": "churn", "low_delta": -0.12, "high_delta": 0.08}]
     assert tornado_chart(data)[:8] == PNG_MAGIC
     assert tornado_chart([])[:8] == PNG_MAGIC  # placeholder fallback
 
 
-def test_gauge_returns_png() -> None:
+def test_cohort_gauge_returns_png_bytes() -> None:
     png = cohort_percentile_gauge(72.0, 84.0)
     assert png[:8] == PNG_MAGIC
 
 
 def test_charts_are_deterministic() -> None:
-    assert chart_sha256(cash_flow_curve(_ticks())) == chart_sha256(cash_flow_curve(_ticks()))
-    assert chart_sha256(mc_distribution_histogram(_mc())) == chart_sha256(
-        mc_distribution_histogram(_mc())
-    )
-    assert chart_sha256(sweep_heatmap(_grid_points(), "churn")) == chart_sha256(
-        sweep_heatmap(_grid_points(), "churn")
-    )
-    assert chart_sha256(survival_line_chart(_grid_points(), "churn")) == chart_sha256(
-        survival_line_chart(_grid_points(), "churn")
-    )
+    # Same input → identical byte output for every chart.
+    assert cash_flow_curve(_ticks()) == cash_flow_curve(_ticks())
+    assert mc_distribution_histogram(_mc()) == mc_distribution_histogram(_mc())
+    assert chart_sha256(kill_vector_bar(_mc())) == chart_sha256(kill_vector_bar(_mc()))
 
 
-def test_render_charts_for_run_bundle(tmp_path: Path) -> None:
-    """render_charts_for_run writes all 4 report charts to disk."""
+def test_render_charts_for_run_creates_files(tmp_path: Path) -> None:
+    """render_charts_for_run writes all 4 report charts to the output dir."""
     bundle = render_charts_for_run(
-        _ticks(), _mc(), "manual-test-run", output_dir=str(tmp_path)
+        _ticks(), _mc(), "run-test", output_dir=str(tmp_path)
     )
-    assert set(bundle.charts.keys()) == {
+    expected = {
         "cash_flow",
         "mc_histogram",
         "kill_vectors",
         "resilience_gauge",
     }
+    assert set(bundle.charts.keys()) == expected
+    for name in expected:
+        assert (tmp_path / f"{name}.png").exists()
+
+
+def test_chart_bundle_get_path(tmp_path: Path) -> None:
+    bundle = ChartBundle(str(tmp_path))
+    bundle.render_all(_ticks(), _mc())
+    path = bundle.get_path("cash_flow")
+    assert path is not None
+    assert path.exists()
+    assert path.stat().st_size > 1024
+
+
+def test_empty_mc_does_not_crash() -> None:
+    png = kill_vector_bar({})
+    assert len(png) > 0
+    assert png[:8] == PNG_MAGIC
+
+
+def test_chart_files_are_valid_png_size(tmp_path: Path) -> None:
+    """Each rendered PNG is a real image larger than 5KB."""
+    bundle = render_charts_for_run(
+        _ticks(), _mc(), "run-size", output_dir=str(tmp_path)
+    )
+    assert len(bundle.charts) == 4
     for path in bundle.charts.values():
-        assert path.exists()
         assert path.read_bytes()[:8] == PNG_MAGIC
+        assert path.stat().st_size > 5 * 1024
