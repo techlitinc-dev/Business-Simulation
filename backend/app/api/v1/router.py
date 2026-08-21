@@ -18,6 +18,7 @@ from .endpoints import (
     dataroom,
     deep_report,
     export,
+    gamification,
     integrations,
     investor,
     journal,
@@ -63,6 +64,7 @@ api_router.include_router(journal.router)
 api_router.include_router(comments.router)
 api_router.include_router(export.router)
 api_router.include_router(integrations.router)
+api_router.include_router(gamification.router)
 
 
 @api_router.get("/health")

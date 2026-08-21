@@ -72,17 +72,24 @@ async def generate_section(
     data_pack: dict[str, Any],
     *,
     provider: LLMProvider | None = None,
+    lang_code: str = "en",
 ) -> dict[str, Any]:
     """
     Call DeepSeek (via bridge) to generate structured markdown for one section.
     Returns a dict with at minimum {"narrative": str, "section_number": int}.
 
+    ``lang_code`` appends a language instruction to the prompt (see
+    ``app.utils.i18n``); the LLM writes narrative text in that language.
+
     Falls back to ``render_data_only_fallback`` when the bridge raises
     ``StructuredOutputError`` (e.g. the deterministic mock returns ``{}``), so
     the report never fails on LLM unavailability.
     """
+    from app.utils.i18n import get_language_instruction
+
     provider = provider or _make_provider()
     prompt = _load_prompt(section.prompt_template, section, data_pack)
+    prompt += get_language_instruction(lang_code)
     schema = _get_schema(section.prompt_template)
 
     logger.info(

@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # Per-1k-token pricing; 0.0 means cost tracking is disabled (cost_usd -> 0.0)
     llm_cost_per_1k_input_tokens: float = 0.0
     llm_cost_per_1k_output_tokens: float = 0.0
+    # Per-task model overrides — empty falls back to llm_model (model router)
+    model_executive_summary: str = ""
+    model_counterfactual: str = ""
+    model_narrative: str = ""
+    model_default: str = ""
 
     # Stripe billing
     stripe_secret_key: str | None = None
