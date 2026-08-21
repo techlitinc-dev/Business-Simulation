@@ -42,7 +42,7 @@ export interface Financials {
 }
 
 export interface Vulnerability {
-  type: string
+  type: 'liquidity' | 'market' | 'operational' | 'competitive' | 'regulatory'
   severity: 'low' | 'medium' | 'high'
   description: string
   mitigation_suggestion: string
@@ -78,7 +78,7 @@ export function emptyBlueprintPayload(): BlueprintPayload {
       fixed_monthly: 0,
       variable_per_unit: 0,
       team: [],
-      burn_rate_month_1: 0,
+      burn_rate_month_1: 45000,
     },
     financials: {
       starting_capital: 0,
@@ -106,6 +106,15 @@ export const GEOGRAPHIES = [
   'Global',
 ]
 export const PRICING_MODELS = ['Subscription', 'One-time', 'Usage-based', 'Freemium', 'Marketplace']
+export const VULNERABILITY_TYPES = [
+  'liquidity',
+  'market',
+  'operational',
+  'competitive',
+  'regulatory',
+]
+export const VULNERABILITY_SEVERITIES = ['low', 'medium', 'high']
+export const MONTE_CARLO_RUNS = [25, 50, 100, 200, 500]
 
 export interface ValidationIssue {
   code: string

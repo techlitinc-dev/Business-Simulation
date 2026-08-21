@@ -11,10 +11,20 @@ import FinancialsStep from './steps/FinancialsStep'
 import ProfileStep from './steps/ProfileStep'
 import RevenueStep from './steps/RevenueStep'
 import ReviewStep from './steps/ReviewStep'
+import SimulationSettingsStep from './steps/SimulationSettingsStep'
+import VulnerabilitiesStep from './steps/VulnerabilitiesStep'
 import { useAddVersion, useCreateBlueprint } from './api'
 import { validateDraft } from './types'
 
-const STEPS = ['Profile', 'Revenue Streams', 'Costs & Team', 'Financials', 'Review']
+const STEPS = [
+  'Profile',
+  'Revenue Streams',
+  'Costs & Team',
+  'Financials',
+  'Vulnerabilities',
+  'Simulation Settings',
+  'Review',
+]
 
 /** Debounce version saves so typing doesn't fire a request per keystroke. */
 function useDebounced<T>(value: T, delay: number): T | null {
@@ -114,6 +124,10 @@ export default function BuilderWizard() {
         return <CostsTeamStep />
       case 3:
         return <FinancialsStep />
+      case 4:
+        return <VulnerabilitiesStep />
+      case 5:
+        return <SimulationSettingsStep />
       default:
         return <ReviewStep />
     }

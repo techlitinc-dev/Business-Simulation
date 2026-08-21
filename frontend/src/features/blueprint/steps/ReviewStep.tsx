@@ -93,6 +93,49 @@ export default function ReviewStep() {
           </ul>
         )}
       </section>
+
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Vulnerabilities
+        </h3>
+        {payload.identified_vulnerabilities.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No vulnerabilities identified.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {payload.identified_vulnerabilities.map((v, i) => (
+              <li key={i} className="py-2 text-sm">
+                <span className="font-medium">{v.type}</span>{' '}
+                <span className="text-muted-foreground">({v.severity})</span>
+                <p>{v.description}</p>
+                {v.mitigation_suggestion && (
+                  <p className="text-muted-foreground">
+                    Mitigation: {v.mitigation_suggestion}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Simulation settings
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Time step">
+            <p className="text-sm">{payload.simulation_parameters.time_step}</p>
+          </Field>
+          <Field label="Monte Carlo runs">
+            <p className="text-sm">{payload.simulation_parameters.monte_carlo_runs}</p>
+          </Field>
+          <Field label="Random seed">
+            <p className="text-sm">
+              {payload.simulation_parameters.random_seed ?? '—'}
+            </p>
+          </Field>
+        </div>
+      </section>
     </div>
   )
 }
