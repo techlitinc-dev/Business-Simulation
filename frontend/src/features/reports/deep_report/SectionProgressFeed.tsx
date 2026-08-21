@@ -50,12 +50,19 @@ export function SectionProgressFeed({ jobId, totalSections, onComplete }: Props)
     return undefined
   }, [lastMessage, onComplete])
 
-  // Polled status: drives completion when the socket is closed/unavailable,
-  // and backfills the final "done" event.
+  // Polled status: drives completion when the socket is closed/unavailable or
+  // when it connected too late to receive the final "done" event, and
+  // backfills the final "done" event.
   useEffect(() => {
-    if (!job || connectionStatus === 'open') return
+    if (!job) return
     const total = job.total_sections || totalSections
     if (job.status === 'completed') {
+      const doneEvt = events.find(
+        (e) => e.status === 'done' && e.section === total,
+      )
+      // Skip if the live socket already delivered the final done event (the
+      // onComplete timer is handled by the socket effect).
+      if (connectionStatus === 'open' && doneEvt) return
       const evt: ProgressEvent = {
         job_id: job.job_id,
         section: total,
@@ -72,7 +79,7 @@ export function SectionProgressFeed({ jobId, totalSections, onComplete }: Props)
       return () => clearTimeout(t)
     }
     return undefined
-  }, [job, connectionStatus, totalSections, onComplete])
+  }, [job, connectionStatus, totalSections, onComplete, events])
 
   const doneCount = useMemo(
     () => events.filter((e) => e.status === 'done').length,

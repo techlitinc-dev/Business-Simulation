@@ -40,8 +40,13 @@ def _section_to_html(
     chart_html = ""
     chart_name = chart_map.get(num)
     if chart_name and chart_name in chart_paths:
+        # WeasyPrint only embeds local files via file:// URLs (plain paths are
+        # silently dropped for security), so normalize before injecting.
+        chart_src = chart_paths[chart_name]
+        if not chart_src.startswith(("file://", "http://", "https://", "data:")):
+            chart_src = f"file://{chart_src}"
         chart_html = (
-            f'<img class="chart-img" src="{chart_paths[chart_name]}" '
+            f'<img class="chart-img" src="{chart_src}" '
             f'alt="{chart_name}" />'
         )
 

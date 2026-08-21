@@ -39,8 +39,20 @@ export function DeepReportPage({ runId }: Props) {
 
   async function handleComplete() {
     if (!job) return
-    const updated = await getReportStatus(job.job_id)
-    setJob(updated)
+    // The worker publishes the final "done" event before PDF assembly, so the
+    // status may briefly report completed-without-pdf_url. Keep polling until
+    // the PDF exists so the download/viewer only appear when ready.
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const updated = await getReportStatus(job.job_id)
+      setJob(updated)
+      if (updated.pdf_url) {
+        setPhase('complete')
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+    }
+    // Give up waiting but still surface the completed state; the download
+    // button will re-fetch status if clicked.
     setPhase('complete')
   }
 
