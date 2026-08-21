@@ -38,6 +38,7 @@ export default function BuilderWizard() {
   const step = useBlueprintDraftStore((s) => s.step)
   const setStep = useBlueprintDraftStore((s) => s.setStep)
   const setBlueprintId = useBlueprintDraftStore((s) => s.setBlueprintId)
+  const [finishing, setFinishing] = useState(false)
 
   const createBlueprint = useCreateBlueprint()
   const addVersion = useAddVersion(draft.blueprintId ?? undefined)
@@ -118,21 +119,37 @@ export default function BuilderWizard() {
     }
   }, [step])
 
-  const handleFinish = () => {
-    if (!draft.blueprintId) return
-    // Persist the latest payload and navigate. If the server rejects it
-    // (422 with validation issues), tell the user and stay on the wizard.
-    addVersion.mutate(draft.payload, {
-      onSuccess: () => navigate(`/app/blueprints/${draft.blueprintId}`),
-      onError: (err: unknown) => {
-        toastError(
-          err instanceof Error
-            ? err.message
-            : 'The server rejected this blueprint. Check the validation panel.',
-          'Could not finish blueprint',
-        )
-      },
-    })
+  // Persist the latest payload and navigate. If the auto-create effect never
+  // ran (or failed), no blueprintId exists yet — create the blueprint here on
+  // demand so Finish always works. Server rejections (422) surface via toast
+  // and the user stays on the wizard with the ValidationPanel showing issues.
+  const handleFinish = async () => {
+    if (finishing || addVersion.isPending) return
+    setFinishing(true)
+    try {
+      if (!draft.blueprintId) {
+        const bp = await createBlueprint.mutateAsync({
+          name: draft.name,
+          industry: draft.payload.business_profile.industry,
+          stage: draft.payload.business_profile.stage,
+          payload: draft.payload,
+        })
+        setBlueprintId(bp.id)
+        navigate(`/app/blueprints/${bp.id}`)
+        return
+      }
+      await addVersion.mutateAsync(draft.payload)
+      navigate(`/app/blueprints/${draft.blueprintId}`)
+    } catch (err) {
+      toastError(
+        err instanceof Error
+          ? err.message
+          : 'The server rejected this blueprint. Check the validation panel.',
+        'Could not finish blueprint',
+      )
+    } finally {
+      setFinishing(false)
+    }
   }
 
   return (
@@ -187,18 +204,18 @@ export default function BuilderWizard() {
               )}
               <Button
                 onClick={handleFinish}
-                disabled={!draft.blueprintId || addVersion.isPending}
+                disabled={addVersion.isPending || createBlueprint.isPending || finishing}
                 title={
-                  !draft.blueprintId
-                    ? 'Save the profile first'
-                    : addVersion.isPending
-                      ? 'Saving…'
-                      : hasErrors
-                        ? 'Fix the validation errors first'
-                        : undefined
+                  addVersion.isPending || createBlueprint.isPending || finishing
+                    ? 'Saving…'
+                    : hasErrors
+                      ? 'Fix the validation errors first'
+                      : undefined
                 }
               >
-                {addVersion.isPending ? 'Saving…' : 'Finish'}
+                {addVersion.isPending || createBlueprint.isPending || finishing
+                  ? 'Saving…'
+                  : 'Finish'}
               </Button>
             </div>
           )}

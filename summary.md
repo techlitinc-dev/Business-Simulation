@@ -374,6 +374,75 @@ blueprint is created with the seeded minimal-valid payload.
 
 ---
 
+# Round 7 — Blueprint Finish button still unclickable (no on-demand create)
+
+Date: 2026-08-21
+
+## Problem
+
+On the Build-a-Blueprint wizard's Review step, the **Finish button was
+still disabled / unclickable** for new blueprints.
+
+## Root cause
+
+Rounds 4–5 moved the Finish button's disabled condition to:
+
+```ts
+disabled={!draft.blueprintId || addVersion.isPending}
+```
+
+but `draft.blueprintId` is only populated by an **asynchronous auto-create
+effect** gated on the profile *name* **and** *industry* being present:
+
+```ts
+const metaReady = draft.name.trim().length > 0
+if (needsCreate && metaReady && profile.industry) { createBlueprint.mutate(...) }
+```
+
+Two gaps remained:
+
+1. **No on-demand create path.** The step-header buttons (which let you jump
+   straight to any step, including Review) and the "Next" button are ungated,
+   so a user could reach Review without the auto-create ever firing —
+   `blueprintId` stayed `null` and `handleFinish` did `if (!draft.blueprintId)
+   return`, permanently disabling the button.
+2. **Silent auto-create failure = permanent dead-end.** If the auto-create
+   POST failed (network error, backend hiccup, no workspace header), `onSuccess`
+   never ran, `blueprintId` stayed `null` forever, and there was no retry —
+   Finish was stuck disabled with a "Save the profile first" tooltip.
+
+## Fix
+
+In `frontend/src/features/blueprint/BuilderWizard.tsx`:
+
+- **Finish now creates the blueprint on demand.** `handleFinish` is async and,
+  when `draft.blueprintId` is falsy, calls `createBlueprint.mutateAsync(...)`
+  with the current draft (name, industry, stage, payload), sets the returned
+  id, then navigates. So the button always works even if the auto-create never
+  fired or failed.
+- **Disabled state reflects only in-flight work**, not missing `blueprintId`:
+  `disabled={addVersion.isPending || createBlueprint.isPending || finishing}`.
+- **Transient "Saving…" label + local `finishing` guard** prevent double
+  submits while staying fully clickable as soon as work settles.
+- Server rejections (422 with validation issues) still surface via `toastError`
+  and keep the user on the wizard so the `ValidationPanel` shows what to fix.
+
+## Files changed
+
+- `frontend/src/features/blueprint/BuilderWizard.tsx` — Finish does a
+  create-on-demand when no blueprint exists; disabled only while an operation
+  is pending.
+
+## Verification
+
+- `npm run build` — passes (no type errors)
+- `npm run lint` — 0 errors (5 pre-existing warnings)
+- `frontend tests` — 36/36 pass (with `NODE_ENV=development`; the shell's
+  global `NODE_ENV=production` loads React's prod build and breaks `act()`,
+  a pre-existing environment artifact, not a code issue)
+
+---
+
 # Round 6 — Clipboard crash: `navigator.clipboard.writeText` is not a function
 
 Date: 2026-08-10
