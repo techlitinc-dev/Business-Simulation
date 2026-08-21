@@ -38,7 +38,7 @@ def upgrade() -> None:
     sa.Column('kill_vectors', _jsonb(), nullable=True),
     sa.Column('run_months', sa.Integer(), server_default='24', nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
-    sa.Column('opted_in', sa.Boolean(), server_default=sa.text('1'), nullable=False),
+    sa.Column('opted_in', sa.Boolean(), server_default=sa.text('true'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_benchmark_industry', 'benchmark_snapshots', ['industry'], unique=False)
