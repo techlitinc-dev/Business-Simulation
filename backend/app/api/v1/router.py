@@ -17,6 +17,7 @@ from .endpoints import (
     dataroom,
     deep_report,
     investor,
+    journal,
     leaderboard,
     portfolio,
     reports,
@@ -55,6 +56,7 @@ api_router.include_router(dataroom.router)
 api_router.include_router(portfolio.router)
 api_router.include_router(sso.router)
 api_router.include_router(scim.router)
+api_router.include_router(journal.router)
 
 
 @api_router.get("/health")

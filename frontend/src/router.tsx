@@ -37,6 +37,7 @@ import ActualsRoute from '@/features/actuals/ActualsRoute'
 import PortfolioRoute from '@/features/portfolio/PortfolioRoute'
 import SimulationListPage from '@/features/simulation/SimulationListPage'
 import RunnerPage from '@/features/simulation/RunnerPage'
+import { DecisionJournalPage } from '@/features/journal/DecisionJournalPage'
 import GhostSetupPage from '@/features/ghost/GhostSetupPage'
 import GhostSpectatorPage from '@/features/ghost/GhostSpectatorPage'
 import ReportPage from '@/features/reports/ReportPage'
@@ -146,6 +147,10 @@ export const router = createBrowserRouter([
               {
                 path: 'simulations/:runId/report',
                 element: <ReportPage />,
+              },
+              {
+                path: 'simulations/:runId/journal',
+                element: <DecisionJournalPage />,
               },
               {
                 path: 'reports',
