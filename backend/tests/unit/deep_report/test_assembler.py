@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import glob
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -72,3 +74,37 @@ async def test_assemble_empty_sections_does_not_crash(tmp_path: Path) -> None:
     path = await assemble_report([], [], {}, "run_empty", "TestCo", "free", out)
     assert Path(path).exists()
     assert Path(path).stat().st_size > 0
+
+
+async def test_free_tier_smaller_than_pro(tmp_path: Path) -> None:
+    """Fewer sections → fewer pages → smaller file (Day 05 spec item 4)."""
+    sections = [
+        {
+            "section_number": 2,
+            "title": "Executive Summary",
+            "narrative": "Survival is 68%. " * 30,
+        },
+        {
+            "section_number": 9,
+            "title": "Monte Carlo",
+            "narrative": "Median lifespan 17 months. " * 20,
+        },
+    ]
+    pro = await assemble_report(
+        sections, _ticks(), _mc(), "run_pro", "Acme", "pro",
+        output_path=str(tmp_path / "pro.pdf"),
+    )
+    free = await assemble_report(
+        sections[:1], _ticks(), _mc(), "run_free", "TestCo", "free",
+        output_path=str(tmp_path / "free.pdf"),
+    )
+    assert Path(free).stat().st_size < Path(pro).stat().st_size
+
+
+async def test_no_leftover_temp_chart_dirs(tmp_path: Path) -> None:
+    """Temp chart directories are cleaned up after assembly (Day 05 item 6)."""
+    out = str(tmp_path / "clean.pdf")
+    before = set(glob.glob(os.path.join(tempfile.gettempdir(), "report_charts_*")))
+    await assemble_report(_sections(), _ticks(), _mc(), "run_clean", "Acme", "pro", out)
+    after = set(glob.glob(os.path.join(tempfile.gettempdir(), "report_charts_*")))
+    assert after == before
