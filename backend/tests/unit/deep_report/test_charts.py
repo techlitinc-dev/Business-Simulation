@@ -1,9 +1,16 @@
-"""Unit tests for the deep-report chart renderer (Day 04)."""
+"""Day 04 tests: deep-report chart renderer (app.utils.charts).
+
+Covers the four report charts (cash flow, MC histogram, kill vectors,
+resilience gauge) plus determinism, empty-data safety, and the
+render_charts_for_run bundle that writes them to disk.
+"""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+from app.services.deep_report.chart_builder import render_charts_for_run
 from app.utils.charts import (
     cash_flow_curve,
     chart_sha256,
@@ -78,14 +85,10 @@ def test_kill_vector_bar_accepts_list_shape() -> None:
     assert png[:8] == PNG_MAGIC
 
 
-def test_kill_vector_bar_empty_falls_back() -> None:
-    png = kill_vector_bar({"kill_vectors": []})
-    assert png[:8] == PNG_MAGIC
-
-
-def test_kill_vector_bar_empty_dict_does_not_crash() -> None:
-    png = kill_vector_bar({})
-    assert png[:8] == PNG_MAGIC
+def test_kill_vector_bar_empty_data_does_not_crash() -> None:
+    # Empty dict and empty list both fall back to a "No data" bar.
+    assert kill_vector_bar({})[:8] == PNG_MAGIC
+    assert kill_vector_bar({"kill_vectors": []})[:8] == PNG_MAGIC
 
 
 def test_tornado_chart_with_and_without_data() -> None:
@@ -107,13 +110,22 @@ def test_charts_are_deterministic() -> None:
     assert chart_sha256(sweep_heatmap(_grid_points(), "churn")) == chart_sha256(
         sweep_heatmap(_grid_points(), "churn")
     )
+    assert chart_sha256(survival_line_chart(_grid_points(), "churn")) == chart_sha256(
+        survival_line_chart(_grid_points(), "churn")
+    )
 
 
-def test_sweep_heatmap_returns_png() -> None:
-    png = sweep_heatmap(_grid_points(), "monthly_churn")
-    assert png[:8] == PNG_MAGIC
-
-
-def test_survival_line_chart_returns_png() -> None:
-    png = survival_line_chart(_grid_points(), "monthly_churn")
-    assert png[:8] == PNG_MAGIC
+def test_render_charts_for_run_bundle(tmp_path: Path) -> None:
+    """render_charts_for_run writes all 4 report charts to disk."""
+    bundle = render_charts_for_run(
+        _ticks(), _mc(), "manual-test-run", output_dir=str(tmp_path)
+    )
+    assert set(bundle.charts.keys()) == {
+        "cash_flow",
+        "mc_histogram",
+        "kill_vectors",
+        "resilience_gauge",
+    }
+    for path in bundle.charts.values():
+        assert path.exists()
+        assert path.read_bytes()[:8] == PNG_MAGIC
