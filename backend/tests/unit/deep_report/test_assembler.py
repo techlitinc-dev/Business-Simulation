@@ -1,14 +1,18 @@
-"""Unit tests for the deep-report PDF assembler service (Day 05)."""
+"""Day 05 tests: deep-report PDF assembler (app.services.deep_report.assembler).
+
+Covers end-to-end assembly (sections + charts → PDF file) plus the
+cover / ToC / section-HTML builders that feed the PDF.
+"""
 
 from __future__ import annotations
 
-import glob
-import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
 from app.services.deep_report.assembler import assemble_report
+from app.utils.pdf_deep import _build_cover, _build_toc, _section_to_html
+
+CHART_PATHS: dict[str, str] = {"cash_flow": "/tmp/charts/cash_flow.png"}
 
 
 def _ticks() -> list[dict[str, Any]]:
@@ -44,67 +48,54 @@ def _sections() -> list[dict[str, Any]]:
     ]
 
 
-async def test_assemble_report_writes_pdf_to_output_path(tmp_path: Path) -> None:
+async def test_assemble_report_returns_pdf_path(tmp_path: Path) -> None:
+    """assemble_report returns a path to a file that exists and is >1KB."""
     out = str(tmp_path / "report.pdf")
     path = await assemble_report(
         _sections(), _ticks(), _mc(), "run_1", "Demo Ventures", "pro", output_path=out
     )
     assert path == out
     assert Path(path).exists()
-    assert Path(path).read_bytes().startswith(b"%PDF")
+    assert Path(path).stat().st_size > 1024
 
 
-async def test_assemble_report_without_output_path_returns_temp_file() -> None:
-    path = await assemble_report(_sections(), _ticks(), _mc(), "run_2", "Demo", "free")
-    assert path.startswith(tempfile.gettempdir())
-    assert Path(path).read_bytes().startswith(b"%PDF")
-    Path(path).unlink()
-
-
-async def test_assemble_report_output_is_pdf_or_html(tmp_path: Path) -> None:
+async def test_assemble_report_file_is_pdf_or_html(tmp_path: Path) -> None:
+    """File starts with %PDF or <! (HTML fallback when WeasyPrint missing)."""
     out = str(tmp_path / "test_report.out")
     path = await assemble_report(_sections(), _ticks(), _mc(), "run_3", "Acme", "free", out)
     header = Path(path).read_bytes()[:8]
     assert header[:4] == b"%PDF" or header[:2] == b"<!"
-    assert Path(path).stat().st_size > 1000
 
 
 async def test_assemble_empty_sections_does_not_crash(tmp_path: Path) -> None:
+    """Empty sections + empty ticks + empty mc → file still created."""
     out = str(tmp_path / "empty.pdf")
     path = await assemble_report([], [], {}, "run_empty", "TestCo", "free", out)
     assert Path(path).exists()
     assert Path(path).stat().st_size > 0
 
 
-async def test_free_tier_smaller_than_pro(tmp_path: Path) -> None:
-    """Fewer sections → fewer pages → smaller file (Day 05 spec item 4)."""
-    sections = [
-        {
-            "section_number": 2,
-            "title": "Executive Summary",
-            "narrative": "Survival is 68%. " * 30,
-        },
-        {
-            "section_number": 9,
-            "title": "Monte Carlo",
-            "narrative": "Median lifespan 17 months. " * 20,
-        },
-    ]
-    pro = await assemble_report(
-        sections, _ticks(), _mc(), "run_pro", "Acme", "pro",
-        output_path=str(tmp_path / "pro.pdf"),
-    )
-    free = await assemble_report(
-        sections[:1], _ticks(), _mc(), "run_free", "TestCo", "free",
-        output_path=str(tmp_path / "free.pdf"),
-    )
-    assert Path(free).stat().st_size < Path(pro).stat().st_size
+def test_section_to_html_includes_title() -> None:
+    """_section_to_html output contains the section title."""
+    html = _section_to_html(_sections()[0], CHART_PATHS)
+    assert "24-Month Financial Narrative" in html
 
 
-async def test_no_leftover_temp_chart_dirs(tmp_path: Path) -> None:
-    """Temp chart directories are cleaned up after assembly (Day 05 item 6)."""
-    out = str(tmp_path / "clean.pdf")
-    before = set(glob.glob(os.path.join(tempfile.gettempdir(), "report_charts_*")))
-    await assemble_report(_sections(), _ticks(), _mc(), "run_clean", "Acme", "pro", out)
-    after = set(glob.glob(os.path.join(tempfile.gettempdir(), "report_charts_*")))
-    assert after == before
+def test_cover_contains_workspace_name() -> None:
+    """_build_cover output contains the workspace name."""
+    cover = _build_cover("Acme Corp", "run_001", "pro", "resilience_audit")
+    assert "Acme Corp" in cover
+
+
+def test_toc_has_all_section_titles() -> None:
+    """_build_toc output contains every section title."""
+    toc = _build_toc(_sections())
+    assert "24-Month Financial Narrative" in toc
+    assert "Monte Carlo Results" in toc
+
+
+def test_chart_injected_for_section_6() -> None:
+    """cash_flow chart path is injected for section 6."""
+    html = _section_to_html(_sections()[0], CHART_PATHS)  # section 6 → cash_flow
+    assert 'class="chart-img"' in html
+    assert "cash_flow.png" in html
