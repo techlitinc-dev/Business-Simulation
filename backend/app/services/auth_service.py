@@ -132,3 +132,46 @@ async def verify_email(db: AsyncSession, token: str) -> None:
 
     user.is_verified = True
     await db.commit()
+
+
+async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
+    """Look up a user by normalized email (SSO / SCIM linking)."""
+    normalized_email = email.strip().lower()
+    user: User | None = await db.scalar(
+        select(User).where(User.email == normalized_email)
+    )
+    return user
+
+
+async def create_sso_user(
+    db: AsyncSession, *, email: str, name: str | None = None
+) -> User:
+    """Create a passwordless user from SSO / SCIM identity claims.
+
+    The caller is responsible for committing; no personal workspace is created
+    here — SCIM provisioning adds the user to a workspace explicitly.
+    """
+    user = User(
+        email=email.strip().lower(),
+        name=(name or email).strip(),
+        pw_hash="",  # passwordless — no local credentials
+        is_verified=True,  # identity was asserted by the IdP
+        is_sso=True,
+        is_active=True,
+    )
+    db.add(user)
+    await db.flush()
+    return user
+
+
+async def deactivate_user(db: AsyncSession, user_id: str) -> bool:
+    """Soft-deactivate a user account (SCIM deprovisioning).
+
+    Returns False when no user matches, True after deactivation.
+    """
+    user = await db.get(User, uuid.UUID(user_id))
+    if user is None:
+        return False
+    user.is_active = False
+    await db.commit()
+    return True

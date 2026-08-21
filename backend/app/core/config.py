@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
 
+    # SSO / SCIM — empty OIDC values mean the endpoints run in stub mode
+    scim_token: str = "changeme-scim-secret"
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+
     # Frontend (used for invite / verification links)
     frontend_url: str = "http://localhost:5173"
 

@@ -115,6 +115,26 @@ async def get_member(
     return member
 
 
+async def add_member(
+    db: AsyncSession, *, workspace_id: uuid.UUID, user_id: uuid.UUID, role: Role = Role.MEMBER
+) -> Membership:
+    """Add a user to a workspace, or return the existing membership (SCIM)."""
+    existing = await db.scalar(
+        select(Membership).where(
+            Membership.workspace_id == workspace_id,
+            Membership.user_id == user_id,
+        )
+    )
+    if existing is not None:
+        return existing
+    membership = Membership(
+        user_id=user_id, workspace_id=workspace_id, role=role
+    )
+    db.add(membership)
+    await db.flush()
+    return membership
+
+
 async def update_member_role(
     db: AsyncSession,
     *,

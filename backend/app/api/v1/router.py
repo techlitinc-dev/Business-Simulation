@@ -21,7 +21,9 @@ from .endpoints import (
     portfolio,
     reports,
     scenarios,
+    scim,
     simulations,
+    sso,
     users,
     webhooks,
     whatif,
@@ -51,6 +53,8 @@ api_router.include_router(benchmark.router)
 api_router.include_router(investor.router)
 api_router.include_router(dataroom.router)
 api_router.include_router(portfolio.router)
+api_router.include_router(sso.router)
+api_router.include_router(scim.router)
 
 
 @api_router.get("/health")
