@@ -2,9 +2,15 @@
 
 import os
 
-# Tests must run without Postgres — force a sqlite-backed engine before any
-# app module imports app.db.session.
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+# Tests must run without Postgres — force a shared-memory sqlite before any
+# app module imports app.db.session. Both the module-level engine (StaticPool,
+# which keeps one connection open so the in-memory DB persists) and worker tasks
+# that build their own engine via settings.database_url attach to the SAME named
+# in-memory DB, so per-task engines see the schema the fixture creates.
+os.environ.setdefault(
+    "DATABASE_URL",
+    "sqlite+aiosqlite:///file:forge_test?mode=memory&cache=shared&uri=true",
+)
 # Cheap argon2 hashing keeps the test suite fast.
 os.environ.setdefault("FORGE_CHEAP_HASH", "1")
 

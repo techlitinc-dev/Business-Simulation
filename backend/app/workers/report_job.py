@@ -126,108 +126,118 @@ def generate_deep_report(
             sections=total,
         )
 
-        from app.db.session import async_session_factory
+        # Per-task engine: the module-level ``async_engine`` binds pooled
+        # connections to the first event loop that touches them, but the worker
+        # runs every task on a fresh ``asyncio.run`` loop, so a shared engine
+        # leaks connections across loops ("Future attached to a different
+        # loop"). Disposing per task keeps each loop's pool isolated.
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-        results: list[dict[str, Any]] = []
+        engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+        async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            results: list[dict[str, Any]] = []
 
-        for idx, section in enumerate(sections, start=1):
-            await _publish_progress(
-                redis, job_id, run_id, tier, idx, total, "writing", section.title
-            )
-            logger.info(
-                "deep report: writing section",
-                job_id=job_id,
-                section=f"{idx}/{total}",
-                title=section.title,
-            )
+            for idx, section in enumerate(sections, start=1):
+                await _publish_progress(
+                    redis, job_id, run_id, tier, idx, total, "writing", section.title
+                )
+                logger.info(
+                    "deep report: writing section",
+                    job_id=job_id,
+                    section=f"{idx}/{total}",
+                    title=section.title,
+                )
 
-            # Data pack (deterministic engine/stored data; never fabricated)
-            async with async_session_factory() as db:
-                data_pack = await build_data_pack(section, run_id, db)
+                # Data pack (deterministic engine/stored data; never fabricated)
+                async with async_session_factory() as db:
+                    data_pack = await build_data_pack(section, run_id, db)
 
-            if not section.ai_generated:
-                section_output = render_data_only_fallback(section, data_pack)
-            else:
-                try:
-                    section_output = await generate_section(section, data_pack)
-                    await _publish_progress(
-                        redis, job_id, run_id, tier, idx, total, "linting", section.title
-                    )
-                    lint = lint_section(section, section_output, data_pack)
-                    if not lint.passed:
-                        logger.warning(
-                            "deep report: lint failed, retrying",
-                            job_id=job_id,
-                            section=idx,
-                            errors=lint.errors,
-                        )
+                if not section.ai_generated:
+                    section_output = render_data_only_fallback(section, data_pack)
+                else:
+                    try:
                         section_output = await generate_section(section, data_pack)
-                        lint2 = lint_section(section, section_output, data_pack)
-                        if not lint2.passed:
-                            logger.error(
-                                "deep report: lint failed twice, using fallback",
+                        await _publish_progress(
+                            redis, job_id, run_id, tier, idx, total, "linting", section.title
+                        )
+                        lint = lint_section(section, section_output, data_pack)
+                        if not lint.passed:
+                            logger.warning(
+                                "deep report: lint failed, retrying",
                                 job_id=job_id,
                                 section=idx,
-                                errors=lint2.errors,
+                                errors=lint.errors,
                             )
-                            section_output = render_data_only_fallback(section, data_pack)
-                except StructuredOutputError as exc:
-                    logger.error(
-                        "deep report: structured output failed, using fallback",
-                        job_id=job_id,
-                        section=idx,
-                        error=str(exc),
-                    )
-                    section_output = render_data_only_fallback(section, data_pack)
+                            section_output = await generate_section(section, data_pack)
+                            lint2 = lint_section(section, section_output, data_pack)
+                            if not lint2.passed:
+                                logger.error(
+                                    "deep report: lint failed twice, using fallback",
+                                    job_id=job_id,
+                                    section=idx,
+                                    errors=lint2.errors,
+                                )
+                                section_output = render_data_only_fallback(section, data_pack)
+                    except StructuredOutputError as exc:
+                        logger.error(
+                            "deep report: structured output failed, using fallback",
+                            job_id=job_id,
+                            section=idx,
+                            error=str(exc),
+                        )
+                        section_output = render_data_only_fallback(section, data_pack)
 
-            results.append(section_output)
+                results.append(section_output)
 
-            await _publish_progress(
-                redis, job_id, run_id, tier, idx, total, "done", section.title
-            )
+                await _publish_progress(
+                    redis, job_id, run_id, tier, idx, total, "done", section.title
+                )
 
-        logger.info("deep report: completed", job_id=job_id, total_sections=len(results))
+            logger.info("deep report: completed", job_id=job_id, total_sections=len(results))
 
-        # Assemble and save the PDF (best-effort — section results are already
-        # collected; a PDF failure is surfaced in the returned payload).
-        pdf_path: str | None = None
-        try:
-            settings = get_settings()
-            from app.services.deep_report.assembler import assemble_report
-            from app.services.deep_report.data_pack import (
-                _extract_mc_aggregates,
-                _fetch_run,
-                _fetch_tick_logs,
-            )
+            # Assemble and save the PDF (best-effort — section results are already
+            # collected; a PDF failure is surfaced in the returned payload).
+            pdf_path: str | None = None
+            try:
+                settings = get_settings()
+                from app.services.deep_report.assembler import assemble_report
+                from app.services.deep_report.data_pack import (
+                    _extract_mc_aggregates,
+                    _fetch_run,
+                    _fetch_tick_logs,
+                )
 
-            async with async_session_factory() as db:
-                run = await _fetch_run(run_id, db)
-                ticks = await _fetch_tick_logs(run_id, db)
-                mc = _extract_mc_aggregates(run) or {}
-                workspace_name = "Workspace"
-                if run is not None:
-                    from app.models.workspace import Workspace
+                async with async_session_factory() as db:
+                    run = await _fetch_run(run_id, db)
+                    ticks = await _fetch_tick_logs(run_id, db)
+                    mc = _extract_mc_aggregates(run) or {}
+                    workspace_name = "Workspace"
+                    if run is not None:
+                        from app.models.workspace import Workspace
 
-                    ws = await db.get(Workspace, run.workspace_id)
-                    workspace_name = ws.name if ws is not None else "Workspace"
+                        ws = await db.get(Workspace, run.workspace_id)
+                        workspace_name = ws.name if ws is not None else "Workspace"
 
-            storage_dir = Path(settings.report_storage_dir)
-            storage_dir.mkdir(parents=True, exist_ok=True)
-            output_path = str(storage_dir / f"{job_id}.pdf")
+                storage_dir = Path(settings.report_storage_dir)
+                storage_dir.mkdir(parents=True, exist_ok=True)
+                output_path = str(storage_dir / f"{job_id}.pdf")
 
-            final_path = await assemble_report(
-                results,
-                ticks,
-                mc,
-                run_id,
-                workspace_name,
-                tier,
-                output_path=output_path,
-            )
-            pdf_path = final_path
-            logger.info("deep report: pdf saved", job_id=job_id, path=final_path)
-        except Exception:  # noqa: BLE001 - PDF assembly must not fail the job
-            logger.error("deep report: pdf assembly failed", job_id=job_id, exc_info=True)
+                final_path = await assemble_report(
+                    results,
+                    ticks,
+                    mc,
+                    run_id,
+                    workspace_name,
+                    tier,
+                    output_path=output_path,
+                )
+                pdf_path = final_path
+                logger.info("deep report: pdf saved", job_id=job_id, path=final_path)
+            except Exception:  # noqa: BLE001 - PDF assembly must not fail the job
+                logger.error("deep report: pdf assembly failed", job_id=job_id, exc_info=True)
+        finally:
+            await engine.dispose()
 
         if redis is not None:
             with suppress(Exception):
