@@ -23,6 +23,28 @@ def test_free_tier_job_completes_with_fallback() -> None:
     assert result["sections_completed"] == 3
 
 
+async def test_job_sections_each_have_narrative() -> None:
+    """Every free-tier section output carries a narrative key (Day 03 spec)."""
+    from app.agents.section_writer import generate_section
+    from app.services.deep_report.data_pack import build_data_pack
+    from app.services.deep_report.manifest import ReportTier
+    from app.services.deep_report.registry import get_manifest
+
+    manifest = get_manifest("resilience_audit")
+    sections = manifest.sections_for_tier(ReportTier.FREE)
+    assert len(sections) == 3
+
+    from app.db.session import async_session_factory
+
+    outputs: list[dict[str, Any]] = []
+    for section in sections:
+        async with async_session_factory() as db:
+            pack = await build_data_pack(section, "run-missing", db)
+        out = await generate_section(section, pack)  # mock provider → fallback
+        outputs.append(out)
+    assert all("narrative" in s for s in outputs)
+
+
 def test_pro_tier_job_completes_with_fallback() -> None:
     result = _run("job-pro", "run-missing", "pro")
     assert result["status"] == "complete"
