@@ -19,7 +19,10 @@ export function DeepReportPage({ runId }: Props) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [job, setJob] = useState<DeepReportJob | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const planTier = useWorkspaceStore.getState().activeWorkspace()?.plan_tier ?? 'free'
+  const workspaces = useWorkspaceStore((s) => s.workspaces)
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
+  const planTier =
+    workspaces.find((w) => w.id === activeWorkspaceId)?.plan_tier ?? 'free'
   const isFree = planTier === 'free'
 
   async function handleGenerate() {

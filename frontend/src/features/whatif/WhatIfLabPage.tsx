@@ -49,7 +49,10 @@ interface Props {
 }
 
 export function WhatIfLabPage({ blueprintId }: Props) {
-  const planTier = useWorkspaceStore.getState().activeWorkspace()?.plan_tier ?? 'free'
+  const workspaces = useWorkspaceStore((s) => s.workspaces)
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
+  const planTier =
+    workspaces.find((w) => w.id === activeWorkspaceId)?.plan_tier ?? 'free'
   const [param, setParam] = useState(PARAMS[0])
   const [range, setRange] = useState<[number, number]>([param.min, param.max])
   const [sweepResult, setSweepResult] = useState<SweepResult | null>(null)
