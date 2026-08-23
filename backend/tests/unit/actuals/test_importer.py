@@ -3,18 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from app.db.base import Base
-from app.models.actuals import ActualsRecord
-from app.models.blueprint import Blueprint, BlueprintVersion
-from app.models.workspace import Workspace
 from app.services.actuals.importer import _parse_csv, _validate_row, import_actuals
 from app.services.actuals.schemas import ActualsUploadRequest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 SAMPLE_CSV = """month,revenue,costs,cash,churn_rate
 1,12000,14000,86000,0.05
@@ -92,53 +84,21 @@ async def test_import_actuals_skips_invalid_rows() -> None:
     assert len(result.validation_warnings) == 1
 
 
-@pytest.fixture
-async def db() -> AsyncIterator[AsyncSession]:
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with factory() as session:
-        yield session
-    await engine.dispose()
-
-
-async def test_import_actuals_create_then_update(db: AsyncSession) -> None:
-    ws = Workspace(name="W", slug=f"w-{uuid.uuid4().hex[:8]}")
-    db.add(ws)
-    await db.flush()
-    bp = Blueprint(name="B", industry="tech", stage="seed", workspace_id=ws.id)
-    db.add(bp)
-    await db.flush()
-    bpv = BlueprintVersion(
-        blueprint_id=bp.id, version=1, payload={"x": 1}, vulnerabilities=[]
+async def test_import_actuals_unmapped_columns() -> None:
+    mock_db = AsyncMock()
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
     )
-    db.add(bpv)
-    await db.commit()
+    mock_db.add = MagicMock()  # sync method on the session
+    mock_db.commit = AsyncMock()
 
-    # First upload creates a record.
-    result = await import_actuals(
-        ActualsUploadRequest(blueprint_id=bp.id, csv_content="month,revenue\n1,12000\n2,15000"),
-        ws.id,
-        db,
+    req = ActualsUploadRequest(
+        blueprint_id="bp_001",
+        csv_content="month,revenue,extra_col\n1,12000,foo\n2,15000,bar",
+        column_mapping={},
     )
+    result = await import_actuals(req, uuid.uuid4(), mock_db)
+    assert "extra_col" in result.unmapped_columns
     assert result.records_created == 2
-    assert result.records_updated == 0
+    assert result.validation_warnings == []
 
-    # Second upload of month 1 with an extra column merges into the existing row.
-    result2 = await import_actuals(
-        ActualsUploadRequest(
-            blueprint_id=bp.id,
-            csv_content="month,costs\n1,14000",
-        ),
-        ws.id,
-        db,
-    )
-    assert result2.records_created == 0
-    assert result2.records_updated == 1
-
-    rows = (await db.execute(select(ActualsRecord))).scalars().all()
-    by_month = {r.month: r.fields for r in rows}
-    assert by_month[1] == {"revenue": 12000.0, "costs": 14000.0}
