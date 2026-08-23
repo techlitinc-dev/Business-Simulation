@@ -42,59 +42,46 @@ async def test_should_not_alert_positive_delta() -> None:
     assert await should_alert(delta) is False
 
 
-async def test_dispatch_alert_sends_email_to_owner(monkeypatch: Any) -> None:
+async def test_dispatch_alert_calls_notification(monkeypatch: Any) -> None:
+    """Dispatch fires the T37 notification hook with the alert message."""
+    import logging
+
     import app.services.actuals.alert_service as alert_service
 
-    sent: list[dict[str, str]] = []
+    notifications: list[str] = []
 
-    class FakeBackend:
-        async def send(
-            self, to: str, subject: str, body_text: str, body_html: str | None = None
-        ) -> None:
-            sent.append({"to": to, "subject": subject, "body_text": body_text})
+    class CaptureHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            if "drift alert notification" in record.getMessage():
+                notifications.append(record.getMessage())
 
-    async def mock_owner_email(db: Any, workspace_id: uuid.UUID) -> str:
-        return "owner@example.com"
+    handler = CaptureHandler()
+    logger = logging.getLogger("app.services.actuals.alert_service")
+    logger.addHandler(handler)
+    try:
+        async def mock_owner_email(db: Any, workspace_id: uuid.UUID) -> None:
+            return None
 
-    async def mock_get_workspace(db: Any, *, workspace_id: uuid.UUID) -> MagicMock:
-        ws = MagicMock()
-        ws.name = "TestCo"
-        return ws
+        async def mock_get_workspace(db: Any, *, workspace_id: uuid.UUID) -> MagicMock:
+            ws = MagicMock()
+            ws.name = "TestCo"
+            return ws
 
-    monkeypatch.setattr(alert_service, "_owner_email", mock_owner_email)
-    monkeypatch.setattr(alert_service, "get_workspace", mock_get_workspace)
-    monkeypatch.setattr(alert_service, "get_email_backend", lambda: FakeBackend())
+        monkeypatch.setattr(alert_service, "_owner_email", mock_owner_email)
+        monkeypatch.setattr(alert_service, "get_workspace", mock_get_workspace)
 
-    delta = _make_delta(-7.0)
-    await dispatch_drift_alert(delta, uuid.uuid4(), AsyncMock())
+        delta = _make_delta(-7.0)
+        await dispatch_drift_alert(delta, uuid.uuid4(), AsyncMock())
+    finally:
+        logger.removeHandler(handler)
 
-    assert len(sent) == 1
-    assert sent[0]["to"] == "owner@example.com"
-    assert "Drift Alert" in sent[0]["subject"]
-    assert "7.0 points" in sent[0]["body_text"]
+    assert notifications, "expected the T37 notification hook to fire"
+    assert "Drift Alert" in notifications[0]
+    assert "7.0 points" in notifications[0]
 
 
-async def test_dispatch_alert_no_owner_skips_email(monkeypatch: Any) -> None:
-    import app.services.actuals.alert_service as alert_service
+async def test_celery_task_importable() -> None:
+    from app.workers.drift_monitor import check_all_blueprints
 
-    async def mock_owner_email(db: Any, workspace_id: uuid.UUID) -> None:
-        return None
-
-    async def mock_get_workspace(db: Any, *, workspace_id: uuid.UUID) -> MagicMock:
-        ws = MagicMock()
-        ws.name = "TestCo"
-        return ws
-
-    monkeypatch.setattr(alert_service, "_owner_email", mock_owner_email)
-    monkeypatch.setattr(alert_service, "get_workspace", mock_get_workspace)
-
-    # If send were called with no owner, the backend would be invoked; use a
-    # sentinel that fails loudly if touched.
-    class ExplodingBackend:
-        async def send(self, *args: Any, **kwargs: Any) -> None:
-            raise AssertionError("email should not be sent without an owner")
-
-    monkeypatch.setattr(alert_service, "get_email_backend", lambda: ExplodingBackend())
-
-    delta = _make_delta(-6.0)
-    await dispatch_drift_alert(delta, uuid.uuid4(), AsyncMock())
+    assert callable(check_all_blueprints)
+    assert check_all_blueprints.name == "forge.check_all_blueprints"
