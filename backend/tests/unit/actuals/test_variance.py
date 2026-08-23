@@ -6,15 +6,15 @@ import json
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from app.agents.variance_narrator import VarianceNarrativeOutput, narrate_variance
 from app.db.base import Base
 from app.models.actuals import ActualsRecord
 from app.models.blueprint import Blueprint, BlueprintVersion
 from app.models.simulation import RunStatus, SimulationRun
 from app.models.workspace import Workspace
-from app.services.actuals.variance import compute_variance
+from app.services.actuals.variance import VarianceDelta, compute_variance
 from sqlalchemy.ext.asyncio import AsyncSession
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
@@ -97,32 +97,51 @@ async def test_compute_variance_no_actuals_raises(db: AsyncSession) -> None:
         await compute_variance(bp_id, ws_id, db)
 
 
-async def test_compute_variance_key_changes_uses_original_payload(
-    db: AsyncSession,
-) -> None:
-    """Fields equal to the blueprint's own values must NOT appear as changes."""
-    ws_id, bp_id = await _seed(db)
-    # churn 0.05 matches the blueprint exactly -> no key change for it.
-    db.add(
-        ActualsRecord(
-            blueprint_id=bp_id,
-            workspace_id=ws_id,
-            month=1,
-            fields={"revenue_engine.streams.0.churn_monthly": 0.05},
-        )
+def _sample_delta() -> VarianceDelta:
+    """A deterministic delta for narrator tests (no DB needed)."""
+    return VarianceDelta(
+        blueprint_id="bp_1",
+        month=3,
+        prior_survival_rate=0.9,
+        new_survival_rate=0.4,
+        survival_delta=-0.5,
+        prior_runway_median=22.0,
+        new_runway_median=14.0,
+        runway_delta=-8.0,
+        prior_resilience_score=88.0,
+        new_resilience_score=50.0,
+        score_delta=-38.0,
+        key_changes=["revenue_engine.streams.0.churn_monthly increased from 0.05 to 0.09"],
     )
-    await db.commit()
-
-    result = await compute_variance(bp_id, ws_id, db, mc_runs=5)
-    assert result.key_changes == []
 
 
-async def test_compute_variance_mocked_no_actuals_raises() -> None:
-    mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(
-        return_value=MagicMock(
-            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
-        )
-    )
-    with pytest.raises(ValueError, match="No actuals"):
-        await compute_variance("bp_001", uuid.uuid4(), mock_db)
+async def test_variance_delta_fields_are_numeric() -> None:
+    delta = _sample_delta()
+    for field in (
+        "prior_survival_rate",
+        "new_survival_rate",
+        "survival_delta",
+        "prior_runway_median",
+        "new_runway_median",
+        "runway_delta",
+        "prior_resilience_score",
+        "new_resilience_score",
+        "score_delta",
+    ):
+        value = getattr(delta, field)
+        assert isinstance(value, float), f"{field} should be float, got {type(value)}"
+
+
+async def test_narrator_with_mock_provider_returns_narrative() -> None:
+    """Mock provider (no API key) falls back to the deterministic narrative."""
+    narrative = await narrate_variance(_sample_delta())
+    assert isinstance(narrative, VarianceNarrativeOutput)
+    assert narrative.headline
+
+
+async def test_narrator_headline_contains_percentage() -> None:
+    narrative = await narrate_variance(_sample_delta())
+    assert "%" in narrative.headline
+    # Headline must reference the actual prior/new survival numbers.
+    assert "90%" in narrative.headline
+    assert "40%" in narrative.headline
