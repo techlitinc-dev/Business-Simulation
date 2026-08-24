@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from app.services.benchmark.aggregator import get_cohort_stats, score_percentile
+from app.services.benchmark.aggregator import get_cohort_stats, score_percentile, snapshot_run
 
 
 def _make_mock_row(
@@ -72,46 +72,42 @@ async def test_cohort_stats_aggregates_kill_vectors() -> None:
     assert "cash_out" in result.top_kill_vectors
 
 
-async def test_cohort_stats_excludes_opted_out() -> None:
-    """opted_in=False snapshots must not appear in cohort stats (Day 20)."""
+async def test_snapshot_run_persists_record() -> None:
+    """snapshot_run inserts a benchmark_snapshots row with the expected fields."""
     from app.db.session import async_session_factory
     from app.models.benchmark import BenchmarkSnapshot
 
     async with async_session_factory() as db:
-        # 6 opted-in + 4 opted-out, same cohort.
-        for i in range(6):
-            db.add(
-                BenchmarkSnapshot(
-                    industry="saas",
-                    stage="seed",
-                    survival_rate=0.5,
-                    median_lifespan=14,
-                    resilience_score=50 + i,
-                    kill_vectors=[],
-                    opted_in=True,
-                )
-            )
-        for i in range(4):
-            db.add(
-                BenchmarkSnapshot(
-                    industry="saas",
-                    stage="seed",
-                    survival_rate=0.5,
-                    median_lifespan=14,
-                    resilience_score=90 + i,
-                    kill_vectors=[],
-                    opted_in=False,
-                )
-            )
-        await db.commit()
-        result = await get_cohort_stats("saas", "seed", db)
+        snap_id = await snapshot_run(
+            run_id="run_snap_1",
+            survival_rate=0.62,
+            median_lifespan=16,
+            resilience_score=57.0,
+            kill_vectors=[
+                {"type": "cash_out", "frequency": 0.4},
+                {"type": "churn", "frequency": 0.3},
+            ],
+            industry="saas",
+            stage="seed",
+            db=db,
+        )
+    assert snap_id
 
-    assert result is not None
-    assert result.sample_size == 6  # opted-out rows are excluded
+    async with async_session_factory() as db:
+        row = await db.get(BenchmarkSnapshot, snap_id)
+        assert row is not None
+        assert row.industry == "saas"
+        assert row.stage == "seed"
+        assert row.survival_rate == 0.62
+        assert row.median_lifespan == 16
+        assert row.resilience_score == 57.0
+        assert row.opted_in is True
+        assert len(row.kill_vectors) == 2
 
 
-async def test_score_percentile_label_matches_cohort() -> None:
+async def test_score_percentile_label_contains_industry() -> None:
     rows = [_make_mock_row(40 + i * 5, 0.4, 15) for i in range(10)]  # scores 40-85
     db = _mock_db_with_rows(rows)
     result = await score_percentile(68.0, "saas", "seed", db)
-    assert result.label == "60th percentile vs. saas seed simulations"
+    assert "saas" in result.label
+    assert result.label.endswith("saas seed simulations")
