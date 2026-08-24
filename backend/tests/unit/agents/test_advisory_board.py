@@ -50,3 +50,18 @@ async def test_advisory_board_result_serializable() -> None:
     _force_mock()
     result = await run_advisory_board(MOCK_BLUEPRINT, MOCK_RUN_SUMMARY)
     json.dumps(result)  # must not raise
+
+
+async def test_each_review_has_top_concerns() -> None:
+    _force_mock()
+    result = await run_advisory_board(MOCK_BLUEPRINT, MOCK_RUN_SUMMARY)
+    for review in result["reviews"]:
+        assert review["persona"]
+        assert isinstance(review["top_concerns"], list)
+        assert len(review["top_concerns"]) >= 1
+
+
+async def test_summary_agreement_list_non_empty() -> None:
+    _force_mock()
+    result = await run_advisory_board(MOCK_BLUEPRINT, MOCK_RUN_SUMMARY)
+    assert len(result["summary"]["points_of_agreement"]) >= 1
