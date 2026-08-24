@@ -1,85 +1,108 @@
+import { Suspense, lazy } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 
 import AppShell from '@/components/layout/AppShell'
 import PageTransition from '@/components/layout/PageTransition'
 import RequireOnboarding from '@/features/onboarding/RequireOnboarding'
-import OnboardingWizard from '@/features/onboarding/OnboardingWizard'
-import DashboardPage from '@/features/dashboard/DashboardPage'
-import AcceptInvitePage from '@/features/auth/AcceptInvitePage'
-import LoginPage from '@/features/auth/LoginPage'
 import ProtectedRoute from '@/features/auth/ProtectedRoute'
-import RegisterPage from '@/features/auth/RegisterPage'
 import ComingSoonPage from '@/features/marketing/ComingSoonPage'
-import LandingPage from '@/features/marketing/LandingPage'
 import MarketingLayout from '@/features/marketing/MarketingLayout'
-import PricingPage from '@/features/marketing/PricingPage'
-import MarketplacePage from '@/features/marketplace/MarketplacePage'
-import ScenarioDetailPage from '@/features/marketplace/ScenarioDetailPage'
-import LeaderboardPage from '@/features/leaderboard/LeaderboardPage'
-import BillingPage from '@/features/billing/BillingPage'
-import MembersPage from '@/features/settings/MembersPage'
-import ProfilePage from '@/features/settings/ProfilePage'
-import SecurityPage from '@/features/settings/SecurityPage'
 import SettingsLayout from '@/features/settings/SettingsLayout'
-import WorkspacePage from '@/features/settings/WorkspacePage'
-import ApiKeysPanel from '@/features/settings/ApiKeysPanel'
-import IntegrationsPage from '@/features/settings/IntegrationsPage'
 import AdminRoute from '@/features/settings/admin/AdminRoute'
-import AdminDashboardPage from '@/features/settings/admin/AdminDashboardPage'
-import AdminUsersPage from '@/features/settings/admin/AdminUsersPage'
-import AdminWorkspacesPage from '@/features/settings/admin/AdminWorkspacesPage'
-import BlueprintDetailPage from '@/features/blueprint/BlueprintDetailPage'
-import BlueprintEditPage from '@/features/blueprint/BlueprintEditPage'
-import BlueprintListPage from '@/features/blueprint/BlueprintListPage'
-import BlueprintCanvasPage from '@/features/blueprint/CanvasView'
-import BuilderWizard from '@/features/blueprint/BuilderWizard'
-import WhatIfLabRoute from '@/features/whatif/WhatIfLabRoute'
-import ActualsRoute from '@/features/actuals/ActualsRoute'
-import PortfolioRoute from '@/features/portfolio/PortfolioRoute'
-import SimulationListPage from '@/features/simulation/SimulationListPage'
-import RunnerPage from '@/features/simulation/RunnerPage'
-import { DecisionJournalPage } from '@/features/journal/DecisionJournalPage'
-import GhostSetupPage from '@/features/ghost/GhostSetupPage'
-import GhostSpectatorPage from '@/features/ghost/GhostSpectatorPage'
-import ReportPage from '@/features/reports/ReportPage'
-import ReportsListPage from '@/features/reports/ReportsListPage'
-import SharedReportPage from '@/features/reports/SharedReportPage'
-import CompareRoute from '@/features/reports/CompareRoute'
+
+// Route-level code splitting: each feature page is loaded on demand so the
+// initial bundle stays small and heavy screens (canvas, charts, reports)
+// only download when the user actually visits them.
+function withSuspense(Component: React.LazyExoticComponent<React.ComponentType<unknown>>) {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-400 animate-pulse">Loading…</div>}>
+      <Component />
+    </Suspense>
+  )
+}
+
+const LoginPage = lazy(() => import('@/features/auth/LoginPage'))
+const RegisterPage = lazy(() => import('@/features/auth/RegisterPage'))
+const AcceptInvitePage = lazy(() => import('@/features/auth/AcceptInvitePage'))
+const OnboardingWizard = lazy(() => import('@/features/onboarding/OnboardingWizard'))
+const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
+const BlueprintListPage = lazy(() => import('@/features/blueprint/BlueprintListPage'))
+const BuilderWizard = lazy(() => import('@/features/blueprint/BuilderWizard'))
+const BlueprintDetailPage = lazy(() => import('@/features/blueprint/BlueprintDetailPage'))
+const BlueprintEditPage = lazy(() => import('@/features/blueprint/BlueprintEditPage'))
+const BlueprintCanvasPage = lazy(() => import('@/features/blueprint/CanvasView'))
+const WhatIfLabRoute = lazy(() => import('@/features/whatif/WhatIfLabRoute'))
+const ActualsRoute = lazy(() => import('@/features/actuals/ActualsRoute'))
+const PortfolioRoute = lazy(() => import('@/features/portfolio/PortfolioRoute'))
+const SimulationListPage = lazy(() => import('@/features/simulation/SimulationListPage'))
+const RunnerPage = lazy(() => import('@/features/simulation/RunnerPage'))
+const DecisionJournalPage = lazy(() =>
+  import('@/features/journal/DecisionJournalPage').then((m) => ({
+    default: m.DecisionJournalPage,
+  })),
+)
+const GhostSetupPage = lazy(() => import('@/features/ghost/GhostSetupPage'))
+const GhostSpectatorPage = lazy(() => import('@/features/ghost/GhostSpectatorPage'))
+const ReportPage = lazy(() => import('@/features/reports/ReportPage'))
+const ReportsListPage = lazy(() => import('@/features/reports/ReportsListPage'))
+const SharedReportPage = lazy(() => import('@/features/reports/SharedReportPage'))
+const CompareRoute = lazy(() => import('@/features/reports/CompareRoute'))
+const LandingPage = lazy(() => import('@/features/marketing/LandingPage'))
+const PricingPage = lazy(() => import('@/features/marketing/PricingPage'))
+const MarketplacePage = lazy(() => import('@/features/marketplace/MarketplacePage'))
+const ScenarioDetailPage = lazy(() =>
+  import('@/features/marketplace/ScenarioDetailPage'),
+)
+const LeaderboardPage = lazy(() => import('@/features/leaderboard/LeaderboardPage'))
+const BillingPage = lazy(() => import('@/features/billing/BillingPage'))
+const MembersPage = lazy(() => import('@/features/settings/MembersPage'))
+const ProfilePage = lazy(() => import('@/features/settings/ProfilePage'))
+const SecurityPage = lazy(() => import('@/features/settings/SecurityPage'))
+const WorkspacePage = lazy(() => import('@/features/settings/WorkspacePage'))
+const ApiKeysPanel = lazy(() => import('@/features/settings/ApiKeysPanel'))
+const IntegrationsPage = lazy(() => import('@/features/settings/IntegrationsPage'))
+const AdminDashboardPage = lazy(() =>
+  import('@/features/settings/admin/AdminDashboardPage'),
+)
+const AdminUsersPage = lazy(() => import('@/features/settings/admin/AdminUsersPage'))
+const AdminWorkspacesPage = lazy(() =>
+  import('@/features/settings/admin/AdminWorkspacesPage'),
+)
 
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <MarketingLayout />,
     children: [
-      { index: true, element: <LandingPage /> },
-      { path: 'pricing', element: <PricingPage /> },
-      { path: 'marketplace', element: <MarketplacePage /> },
-      { path: 'marketplace/:scenarioId', element: <ScenarioDetailPage /> },
-      { path: 'leaderboard', element: <LeaderboardPage /> },
+      { index: true, element: withSuspense(LandingPage) },
+      { path: 'pricing', element: withSuspense(PricingPage) },
+      { path: 'marketplace', element: withSuspense(MarketplacePage) },
+      { path: 'marketplace/:scenarioId', element: withSuspense(ScenarioDetailPage) },
+      { path: 'leaderboard', element: withSuspense(LeaderboardPage) },
     ],
   },
   {
     path: '/login',
-    element: <LoginPage />,
+    element: withSuspense(LoginPage),
   },
   {
     path: '/register',
-    element: <RegisterPage />,
+    element: withSuspense(RegisterPage),
   },
   {
     path: '/shared/reports/:token',
-    element: <SharedReportPage />,
+    element: withSuspense(SharedReportPage),
   },
   {
     element: <ProtectedRoute />,
     children: [
       {
         path: '/onboarding',
-        element: <OnboardingWizard />,
+        element: withSuspense(OnboardingWizard),
       },
       {
         path: '/accept-invite',
-        element: <AcceptInvitePage />,
+        element: withSuspense(AcceptInvitePage),
       },
       {
         path: '/app',
@@ -95,103 +118,103 @@ export const router = createBrowserRouter([
             children: [
               {
                 index: true,
-                element: <DashboardPage />,
+                element: withSuspense(DashboardPage),
               },
               {
                 path: 'blueprints',
-                element: <BlueprintListPage />,
+                element: withSuspense(BlueprintListPage),
               },
               {
                 path: 'blueprints/new',
-                element: <BuilderWizard />,
+                element: withSuspense(BuilderWizard),
               },
               {
                 path: 'blueprints/:blueprintId',
-                element: <BlueprintDetailPage />,
+                element: withSuspense(BlueprintDetailPage),
               },
               {
                 path: 'blueprints/:blueprintId/edit',
-                element: <BlueprintEditPage />,
+                element: withSuspense(BlueprintEditPage),
               },
               {
                 path: 'blueprints/:blueprintId/canvas',
-                element: <BlueprintCanvasPage />,
+                element: withSuspense(BlueprintCanvasPage),
               },
               {
                 path: 'blueprints/:blueprintId/whatif',
-                element: <WhatIfLabRoute />,
+                element: withSuspense(WhatIfLabRoute),
               },
               {
                 path: 'blueprints/:blueprintId/actuals',
-                element: <ActualsRoute />,
+                element: withSuspense(ActualsRoute),
               },
               {
                 path: 'portfolio/:portfolioId',
-                element: <PortfolioRoute />,
+                element: withSuspense(PortfolioRoute),
               },
               {
                 path: 'simulations',
-                element: <SimulationListPage />,
+                element: withSuspense(SimulationListPage),
               },
               {
                 path: 'simulations/ghost',
-                element: <GhostSetupPage />,
+                element: withSuspense(GhostSetupPage),
               },
               {
                 path: 'simulations/ghost/:runId',
-                element: <GhostSpectatorPage />,
+                element: withSuspense(GhostSpectatorPage),
               },
               {
                 path: 'simulations/:runId',
-                element: <RunnerPage />,
+                element: withSuspense(RunnerPage),
               },
               {
                 path: 'simulations/:runId/report',
-                element: <ReportPage />,
+                element: withSuspense(ReportPage),
               },
               {
                 path: 'simulations/:runId/journal',
-                element: <DecisionJournalPage />,
+                element: withSuspense(DecisionJournalPage),
               },
               {
                 path: 'reports',
-                element: <ReportsListPage />,
+                element: withSuspense(ReportsListPage),
               },
               {
                 path: 'reports/compare',
-                element: <CompareRoute />,
+                element: withSuspense(CompareRoute),
               },
               {
                 path: 'ghost',
-                element: <GhostSetupPage />,
+                element: withSuspense(GhostSetupPage),
               },
               {
                 path: 'marketplace',
-                element: <MarketplacePage />,
+                element: withSuspense(MarketplacePage),
               },
               {
                 path: 'marketplace/:scenarioId',
-                element: <ScenarioDetailPage />,
+                element: withSuspense(ScenarioDetailPage),
               },
               {
                 path: 'leaderboard',
-                element: <LeaderboardPage />,
+                element: withSuspense(LeaderboardPage),
               },
               {
                 path: 'billing',
-                element: <BillingPage />,
+                element: withSuspense(BillingPage),
               },
               {
                 path: 'settings',
                 element: <SettingsLayout />,
                 children: [
-                  { index: true, element: <ProfilePage /> },
-                  { path: 'profile', element: <ProfilePage /> },
-                  { path: 'workspace', element: <WorkspacePage /> },
-                  { path: 'members', element: <MembersPage /> },
-                  { path: 'security', element: <SecurityPage /> },
-                  { path: 'api-keys', element: <ApiKeysPanel /> },
-                  { path: 'integrations', element: <IntegrationsPage /> },
+                  { index: true, element: withSuspense(ProfilePage) },
+                  { path: 'profile', element: withSuspense(ProfilePage) },
+                  { path: 'workspace', element: withSuspense(WorkspacePage) },
+                  { path: 'members', element: withSuspense(MembersPage) },
+                  { path: 'security', element: withSuspense(SecurityPage) },
+                  { path: 'api-keys', element: withSuspense(ApiKeysPanel) },
+                  { path: 'integrations', element: withSuspense(IntegrationsPage) },
                 ],
               },
               {
@@ -202,9 +225,9 @@ export const router = createBrowserRouter([
                   </AdminRoute>
                 ),
                 children: [
-                  { index: true, element: <AdminDashboardPage /> },
-                  { path: 'users', element: <AdminUsersPage /> },
-                  { path: 'workspaces', element: <AdminWorkspacesPage /> },
+                  { index: true, element: withSuspense(AdminDashboardPage) },
+                  { path: 'users', element: withSuspense(AdminUsersPage) },
+                  { path: 'workspaces', element: withSuspense(AdminWorkspacesPage) },
                 ],
               },
               {
