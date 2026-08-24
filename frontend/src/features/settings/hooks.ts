@@ -79,6 +79,28 @@ export function useUpdateWorkspace(workspaceId: string | undefined) {
   })
 }
 
+/** Persist the workspace benchmark opt-in flag via PATCH. */
+export function useUpdateBenchmarkOptIn(workspaceId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { name: string; benchmark_opt_in: boolean }) =>
+      apiFetch<WorkspaceOut>(`/api/v1/workspaces/${workspaceId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      toastSuccess('Benchmark sharing updated')
+      void queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+    },
+    onError: (err: unknown) => {
+      toastError(
+        err instanceof Error ? err.message : 'Could not update benchmark sharing',
+        'Benchmark update failed',
+      )
+    },
+  })
+}
+
 export function useUpdateMemberRole(workspaceId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({

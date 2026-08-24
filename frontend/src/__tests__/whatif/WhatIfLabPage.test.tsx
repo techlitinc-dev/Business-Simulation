@@ -56,7 +56,7 @@ const BREAKEVEN: BreakevenResult = {
 
 function setPlanTier(tier: string) {
   useWorkspaceStore.getState().setWorkspaces([
-    { id: 'ws_1', name: 'Test WS', slug: 'test-ws', plan_tier: tier, role: 'owner' },
+    { id: 'ws_1', name: 'Test WS', slug: 'test-ws', plan_tier: tier, role: 'owner', benchmark_opt_in: true },
   ])
   useWorkspaceStore.getState().setActive('ws_1')
 }

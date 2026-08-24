@@ -24,6 +24,7 @@ class WorkspaceCreate(BaseModel):
 
 class WorkspaceUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+    benchmark_opt_in: bool | None = None
 
 
 class WorkspaceOut(BaseModel):
@@ -34,6 +35,7 @@ class WorkspaceOut(BaseModel):
     slug: str
     plan_tier: str
     role: str
+    benchmark_opt_in: bool
 
 
 class MemberOut(BaseModel):

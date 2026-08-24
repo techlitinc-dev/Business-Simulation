@@ -26,6 +26,7 @@ def _workspace_out(workspace: Workspace, membership: Membership) -> WorkspaceOut
         slug=workspace.slug,
         plan_tier=workspace.plan_tier,
         role=membership.role,
+        benchmark_opt_in=workspace.benchmark_opt_in,
     )
 
 
@@ -67,9 +68,16 @@ async def get_workspace(db: AsyncSession, *, workspace_id: uuid.UUID) -> Workspa
 
 
 async def update_workspace(
-    db: AsyncSession, *, workspace: Workspace, membership: Membership, name: str
+    db: AsyncSession,
+    *,
+    workspace: Workspace,
+    membership: Membership,
+    name: str,
+    benchmark_opt_in: bool | None = None,
 ) -> WorkspaceOut:
     workspace.name = name.strip()
+    if benchmark_opt_in is not None:
+        workspace.benchmark_opt_in = benchmark_opt_in
     await db.commit()
     await db.refresh(workspace)
     return _workspace_out(workspace, membership)

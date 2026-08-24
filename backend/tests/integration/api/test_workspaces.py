@@ -262,3 +262,23 @@ async def test_member_can_remove_themselves(client: AsyncClient) -> None:
         f"/api/v1/workspaces/{ws_id}/members/{my_id}", headers=_auth(mtok)
     )
     assert resp.status_code == 204
+
+
+async def test_benchmark_opt_in_defaults_and_persists(client: AsyncClient) -> None:
+    await _register(client, "bmopt@b.co", "BmOpt")
+    tok = (await _login(client, "bmopt@b.co"))["access_token"]
+    ws = (await client.get("/api/v1/workspaces", headers=_auth(tok))).json()[0]
+    assert ws["benchmark_opt_in"] is True
+
+    # Owner toggles benchmark sharing off via PATCH.
+    resp = await client.patch(
+        f"/api/v1/workspaces/{ws['id']}",
+        json={"name": ws["name"], "benchmark_opt_in": False},
+        headers=_auth(tok),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["benchmark_opt_in"] is False
+
+    # The persisted value round-trips through the listing.
+    listing = (await client.get("/api/v1/workspaces", headers=_auth(tok))).json()
+    assert listing[0]["benchmark_opt_in"] is False

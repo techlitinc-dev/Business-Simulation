@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useWorkspaceStore } from '@/stores/workspace-store'
-import { useUpdateWorkspace, useWorkspaces } from './hooks'
+import { useUpdateBenchmarkOptIn, useUpdateWorkspace, useWorkspaces } from './hooks'
 
 export default function WorkspacePage() {
   useWorkspaces()
@@ -22,9 +22,16 @@ export default function WorkspacePage() {
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null
 
   const [name, setName] = useState(active?.name ?? '')
-  // TODO: persist on the Workspace model — no benchmark_opt_in column yet.
-  const [benchmarkOptIn, setBenchmarkOptIn] = useState(true)
+  const [benchmarkOptIn, setBenchmarkOptIn] = useState(
+    active?.benchmark_opt_in ?? true,
+  )
   const updateWorkspace = useUpdateWorkspace(active?.id)
+  const updateBenchmarkOptIn = useUpdateBenchmarkOptIn(active?.id)
+
+  // Keep the toggle in sync when the workspace (or its persisted setting) loads.
+  useEffect(() => {
+    setBenchmarkOptIn(active?.benchmark_opt_in ?? true)
+  }, [active?.id, active?.benchmark_opt_in])
 
   if (!active) {
     return (
@@ -91,7 +98,16 @@ export default function WorkspacePage() {
             <input
               type="checkbox"
               checked={benchmarkOptIn}
-              onChange={(e) => setBenchmarkOptIn(e.target.checked)}
+              onChange={(e) => {
+                const next = e.target.checked
+                setBenchmarkOptIn(next)
+                if (active) {
+                  updateBenchmarkOptIn.mutate({
+                    name: active.name,
+                    benchmark_opt_in: next,
+                  })
+                }
+              }}
               className="rounded"
             />
             Share anonymized simulation data to improve cohort benchmarks

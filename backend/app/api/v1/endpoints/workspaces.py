@@ -76,7 +76,11 @@ async def update_workspace(
 ) -> WorkspaceOut:
     workspace = await workspace_service.get_workspace(db, workspace_id=workspace_id)
     return await workspace_service.update_workspace(
-        db, workspace=workspace, membership=membership, name=payload.name
+        db,
+        workspace=workspace,
+        membership=membership,
+        name=payload.name,
+        benchmark_opt_in=payload.benchmark_opt_in,
     )
 
 

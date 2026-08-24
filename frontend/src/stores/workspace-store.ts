@@ -6,6 +6,7 @@ export interface WorkspaceOut {
   slug: string
   plan_tier: string
   role: string
+  benchmark_opt_in: boolean
 }
 
 const ACTIVE_KEY = 'forge.active_workspace_id'

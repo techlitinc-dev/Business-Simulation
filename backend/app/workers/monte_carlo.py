@@ -417,7 +417,7 @@ def run_monte_carlo(run_id: str) -> None:
                         from sqlalchemy import select
 
                         from app.models.user import User
-                        from app.models.workspace import Membership, Role
+                        from app.models.workspace import Membership, Role, Workspace
                         from app.services.benchmark.aggregator import snapshot_run
 
                         owner = await session.scalar(
@@ -428,20 +428,24 @@ def run_monte_carlo(run_id: str) -> None:
                                 Membership.role == Role.OWNER,
                             )
                         )
-                        kill_vectors = [
-                            {"type": cause, "frequency": count}
-                            for cause, count in (result.kill_vectors or {}).items()
-                        ]
-                        await snapshot_run(
-                            run_id=run_id,
-                            survival_rate=result.survival_rate,
-                            median_lifespan=result.median_lifespan_months,
-                            resilience_score=result.resilience_score,
-                            kill_vectors=kill_vectors,
-                            industry=owner.industry if owner else None,
-                            stage=owner.stage if owner else None,
-                            db=session,
-                        )
+                        workspace = await session.get(Workspace, run.workspace_id)
+                        # Respect the workspace benchmark opt-out: only snapshot
+                        # anonymized results when the workspace opted in.
+                        if workspace is not None and workspace.benchmark_opt_in:
+                            kill_vectors = [
+                                {"type": cause, "frequency": count}
+                                for cause, count in (result.kill_vectors or {}).items()
+                            ]
+                            await snapshot_run(
+                                run_id=run_id,
+                                survival_rate=result.survival_rate,
+                                median_lifespan=result.median_lifespan_months,
+                                resilience_score=result.resilience_score,
+                                kill_vectors=kill_vectors,
+                                industry=owner.industry if owner else None,
+                                stage=owner.stage if owner else None,
+                                db=session,
+                            )
                     except Exception:  # noqa: BLE001 - benchmark is best-effort
                         logger.warning("benchmark snapshot failed", run_id=run_id, exc_info=True)
 

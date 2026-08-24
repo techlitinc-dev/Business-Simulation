@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     String,
@@ -35,6 +36,8 @@ class Workspace(TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(140), unique=True, index=True, nullable=False)
     plan_tier: Mapped[str] = mapped_column(String(40), default="free", nullable=False)
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Whether the workspace shares anonymized run snapshots for cohort benchmarks.
+    benchmark_opt_in: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     memberships: Mapped[list[Membership]] = relationship(
         back_populates="workspace", cascade="all, delete-orphan"
