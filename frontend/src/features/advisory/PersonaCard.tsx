@@ -24,7 +24,10 @@ export function PersonaCard({ review }: { review: PersonaReview }) {
         : 'text-red-400'
 
   return (
-    <div className={`bg-slate-800 border ${borderColor} rounded-lg p-4 space-y-3`}>
+    <div
+      data-testid="persona-card"
+      className={`bg-slate-800 border ${borderColor} rounded-lg p-4 space-y-3`}
+    >
       <div className="flex items-center justify-between">
         <span className="font-semibold text-white">
           {icon} {review.persona}
