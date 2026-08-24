@@ -5,17 +5,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DeepReportPage } from '@/features/reports/deep_report/DeepReportPage'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { ApiError } from '@/lib/api-client'
-import { getDownloadUrl } from '@/features/reports/deep_report/api'
 
-const { requestDeepReportMock, getReportStatusMock } = vi.hoisted(() => ({
-  requestDeepReportMock: vi.fn(),
-  getReportStatusMock: vi.fn(),
-}))
+const { requestDeepReportMock, getReportStatusMock, fetchReportPdfMock } =
+  vi.hoisted(() => ({
+    requestDeepReportMock: vi.fn(),
+    getReportStatusMock: vi.fn(),
+    fetchReportPdfMock: vi.fn(),
+  }))
 
 vi.mock('@/features/reports/deep_report/api', () => ({
   requestDeepReport: (...args: unknown[]) => requestDeepReportMock(...args),
   getReportStatus: (...args: unknown[]) => getReportStatusMock(...args),
   getDownloadUrl: (jobId: string) => `/api/v1/reports/deep-dive/${jobId}/download`,
+  fetchReportPdf: (...args: unknown[]) => fetchReportPdfMock(...args),
 }))
 
 vi.mock('@/features/reports/deep_report/SectionProgressFeed', () => ({
@@ -68,6 +70,10 @@ describe('DeepReportPage', () => {
   beforeEach(() => {
     requestDeepReportMock.mockReset()
     getReportStatusMock.mockReset()
+    fetchReportPdfMock.mockReset()
+    // jsdom doesn't implement object URLs; stub them so the blob path works.
+    URL.createObjectURL = vi.fn(() => 'blob:mock-url')
+    URL.revokeObjectURL = vi.fn()
   })
 
   it('renders paywall for free plan', () => {
@@ -139,6 +145,11 @@ describe('DeepReportPage', () => {
     setPlanTier('pro')
     requestDeepReportMock.mockResolvedValue(JOB)
     getReportStatusMock.mockResolvedValue(COMPLETE_JOB)
+    // The PDF is fetched with auth and rendered as a blob object URL (a raw
+    // anchor/iframe navigation would get a 401 for the missing headers).
+    fetchReportPdfMock.mockResolvedValue(
+      new Blob(['%PDF-1.7'], { type: 'application/pdf' }),
+    )
     renderPage()
 
     await user.click(screen.getByRole('button', { name: 'Generate Deep-Dive Report' }))
@@ -146,11 +157,30 @@ describe('DeepReportPage', () => {
     await user.click(within(feed).getByRole('button', { name: 'complete-feed' }))
 
     expect(await screen.findByText(/Report ready — 13 sections generated/)).toBeInTheDocument()
+    expect(fetchReportPdfMock).toHaveBeenCalledWith('dr_test123')
     const link = screen.getByRole('link', { name: /Download PDF/ })
-    expect(link).toHaveAttribute('href', getDownloadUrl('dr_test123'))
+    expect(link).toHaveAttribute('href', expect.stringMatching(/^blob:/))
     expect(screen.getByTestId('report-viewer')).toHaveAttribute(
       'src',
-      getDownloadUrl('dr_test123'),
+      expect.stringMatching(/^blob:/),
     )
+  })
+
+  it('shows retry when the PDF blob fails to load', async () => {
+    const user = userEvent.setup()
+    setPlanTier('pro')
+    requestDeepReportMock.mockResolvedValue(JOB)
+    getReportStatusMock.mockResolvedValue(COMPLETE_JOB)
+    fetchReportPdfMock.mockRejectedValue(new ApiError(401, 'Not authenticated'))
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: 'Generate Deep-Dive Report' }))
+    const feed = await screen.findByTestId('progress-feed')
+    await user.click(within(feed).getByRole('button', { name: 'complete-feed' }))
+
+    expect(
+      await screen.findByRole('button', { name: 'Retry loading PDF' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Download PDF/ })).not.toBeInTheDocument()
   })
 })

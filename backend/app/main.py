@@ -59,15 +59,25 @@ def create_app() -> FastAPI:
         return response
 
     # T49: Security headers middleware.
+    #
+    # Frame control: the PDF viewer embeds the same-origin `/download` response
+    # in an `<iframe>`, and X-Frame-Options DENY forbids ALL framing — including
+    # same-origin — so it would break the viewer. We therefore apply DENY only
+    # to navigable HTML pages and use CSP `frame-ancestors 'self'` on every
+    # response: same-origin embedding (our PDF iframe) is allowed while
+    # cross-origin framing stays blocked.
     @app.middleware("http")
     async def security_headers_middleware(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        if response.headers.get("Content-Type", "").startswith("text/html"):
+            response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        response.headers["Content-Security-Policy"] = (
+            "frame-ancestors 'self'; default-src 'self'"
+        )
         if settings.environment == "production":
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
@@ -104,8 +114,9 @@ def create_app() -> FastAPI:
     app.include_router(ws_router)
 
     # Serve exported report PDFs from the configured storage dir.
-    from fastapi.staticfiles import StaticFiles
     from pathlib import Path
+
+    from fastapi.staticfiles import StaticFiles
 
     reports_dir = Path(settings.report_storage_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)

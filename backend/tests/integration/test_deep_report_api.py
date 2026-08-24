@@ -37,6 +37,13 @@ def _stub_task(monkeypatch) -> _TaskStub:
     return stub
 
 
+class _FailingTask:
+    """Stands in for the Celery task when the broker is unreachable."""
+
+    def delay(self, **_kwargs: Any) -> None:
+        raise RuntimeError("broker unavailable")
+
+
 async def _fake_redis(monkeypatch) -> fakeredis.aioredis.FakeRedis:
     fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
     monkeypatch.setattr("app.api.deps.get_redis", lambda: fake)
@@ -166,3 +173,60 @@ async def test_invalid_report_type_returns_422(client: AsyncClient) -> None:
         json={"run_id": "run_missing", "report_type": "nonexistent"},
     )
     assert resp.status_code == 422
+
+
+async def test_enqueue_failure_persists_failed_and_status_returns_failed(
+    client: AsyncClient, monkeypatch
+) -> None:
+    """Broker-down enqueue returns FAILED and status reports FAILED (not 404)."""
+    monkeypatch.setattr(deep_report_module, "generate_deep_report", _FailingTask())
+    fake = await _fake_redis(monkeypatch)
+    acc = await _workspace(client, "day06-i@b.co", "free")
+
+    resp = await client.post(
+        REPORT_URL,
+        headers=acc["headers"],
+        json={"run_id": "run_missing", "report_type": "resilience_audit"},
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["status"] == "failed"
+    assert await fake.exists(f"deep_report:progress:{body['job_id']}")
+
+    status = await client.get(
+        f"{REPORT_URL}/{body['job_id']}/status", headers=acc["headers"]
+    )
+    assert status.status_code == 200
+    assert status.json()["status"] == "failed"
+
+
+async def test_status_returns_failed_for_error_progress(
+    client: AsyncClient, monkeypatch
+) -> None:
+    """A stored 'error' progress record maps to FAILED status."""
+    _stub_task(monkeypatch)
+    fake = await _fake_redis(monkeypatch)
+    acc = await _workspace(client, "day06-j@b.co", "free")
+
+    resp = await client.post(REPORT_URL, headers=acc["headers"], json={"run_id": "run_missing"})
+    job_id = resp.json()["job_id"]
+
+    await fake.set(
+        f"deep_report:progress:{job_id}",
+        json.dumps(
+            {
+                "job_id": job_id,
+                "run_id": "run_missing",
+                "tier": "free",
+                "section": 2,
+                "total": 3,
+                "status": "error",
+            }
+        ),
+        ex=3600,
+    )
+
+    status = await client.get(f"{REPORT_URL}/{job_id}/status", headers=acc["headers"])
+    assert status.status_code == 200
+    assert status.json()["status"] == "failed"
+    assert status.json()["pdf_url"] is None

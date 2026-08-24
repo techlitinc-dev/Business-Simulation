@@ -28,7 +28,7 @@ export function SectionProgressFeed({ jobId, totalSections, onComplete }: Props)
   const [events, setEvents] = useState<ProgressEvent[]>([])
   const [current, setCurrent] = useState<ProgressEvent | null>(null)
   const { lastMessage, connectionStatus } = useChannelSocket(`/ws/reports/${jobId}`)
-  const { data: job } = useDeepReportStatus(jobId)
+  const { data: job, error: statusError } = useDeepReportStatus(jobId)
 
   // Live events from the WebSocket channel.
   useEffect(() => {
@@ -86,6 +86,18 @@ export function SectionProgressFeed({ jobId, totalSections, onComplete }: Props)
     [events],
   )
   const pct = totalSections > 0 ? Math.round((doneCount / totalSections) * 100) : 0
+
+  // A failed/missing job is terminal — surface a clear message instead of
+  // leaving the progress UI spinning (or, for a browser-only 404, spamming).
+  if (job?.status === 'failed' || statusError) {
+    return (
+      <p className="text-red-400 text-sm">
+        The report job could not be completed
+        {statusError ? ' — it was not found on the server' : ''}. Please try
+        generating the report again.
+      </p>
+    )
+  }
 
   return (
     <div className="space-y-4">

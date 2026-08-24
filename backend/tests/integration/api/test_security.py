@@ -143,11 +143,22 @@ async def test_cors_allowed_origin_gets_header(client: AsyncClient) -> None:
 async def test_security_headers_present(client: AsyncClient) -> None:
     resp = await client.get("/health")
     assert resp.headers.get("x-content-type-options") == "nosniff"
-    assert resp.headers.get("x-frame-options") == "DENY"
     assert resp.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
-    assert resp.headers.get("content-security-policy") == "default-src 'self'"
+    # CSP governs framing for every response (same-origin embedding allowed,
+    # cross-origin blocked). Non-HTML responses (e.g. the JSON health check,
+    # PDF downloads) carry no X-Frame-Options so the same-origin PDF viewer
+    # iframe works.
+    assert "frame-ancestors 'self'" in resp.headers.get("content-security-policy", "")
+    assert "x-frame-options" not in resp.headers
     # HSTS only in production.
     assert "strict-transport-security" not in resp.headers
+
+
+async def test_html_pages_get_x_frame_options_deny(client: AsyncClient) -> None:
+    """Navigable HTML pages are still hard-blocked from framing."""
+    resp = await client.get("/docs")
+    assert resp.headers.get("content-type", "").startswith("text/html")
+    assert resp.headers.get("x-frame-options") == "DENY"
 
 
 async def test_hsts_only_in_production(client: AsyncClient, monkeypatch) -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from contextlib import suppress
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -75,6 +76,25 @@ async def request_deep_report(
         )
     except Exception:  # noqa: BLE001 - Redis broker down in dev/tests
         logger.warning("deep report: enqueue failed", exc_info=True)
+        # Persist a FAILED record so subsequent status polls return FAILED
+        # instead of 404, and so the frontend can surface "generation failed"
+        # rather than the UI hanging or spamming 404s.
+        redis = get_redis()
+        with suppress(Exception):
+            await redis.set(
+                f"deep_report:progress:{job_id}",
+                json.dumps(
+                    {
+                        "job_id": job_id,
+                        "run_id": body.run_id,
+                        "tier": tier,
+                        "section": 0,
+                        "total": len(sections),
+                        "status": "error",
+                    }
+                ),
+                ex=3600,
+            )
         return DeepReportResponse(
             job_id=job_id,
             run_id=body.run_id,
@@ -109,9 +129,18 @@ async def get_report_status(
         raise HTTPException(status_code=404, detail="Report job not found")
 
     progress = json.loads(raw)
-    is_done = (
-        progress.get("status") == "done" and progress.get("section") == progress.get("total")
-    )
+    stored_status = progress.get("status")
+
+    # A stored "error" status (enqueue broker failure or worker failure) must
+    # surface as FAILED, not be misreported as in-progress or 404.
+    if stored_status == "error":
+        is_done = False
+        status = ReportJobStatus.FAILED
+    else:
+        is_done = (
+            stored_status == "done" and progress.get("section") == progress.get("total")
+        )
+        status = ReportJobStatus.COMPLETED if is_done else ReportJobStatus.IN_PROGRESS
 
     pdf_url = None
     if is_done and _report_pdf_path(job_id).exists():
@@ -120,7 +149,7 @@ async def get_report_status(
     return DeepReportResponse(
         job_id=job_id,
         run_id=progress.get("run_id", ""),
-        status=ReportJobStatus.COMPLETED if is_done else ReportJobStatus.IN_PROGRESS,
+        status=status,
         tier=progress.get("tier", "free"),
         total_sections=progress.get("total", 0),
         pdf_url=pdf_url,
