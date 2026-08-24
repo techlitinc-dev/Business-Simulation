@@ -12,7 +12,6 @@ from typing import Any
 import structlog
 from sqlalchemy import select
 
-from app.db.session import async_session_factory
 from app.models.actuals import ActualsRecord
 from app.services.actuals.alert_service import dispatch_drift_alert, should_alert
 from app.services.actuals.variance import compute_variance
@@ -58,41 +57,55 @@ def check_all_blueprints() -> int:
     """
 
     async def _run() -> int:
-        async with async_session_factory() as db:
-            result = await db.execute(
-                select(ActualsRecord.blueprint_id, ActualsRecord.workspace_id).distinct()
-            )
-            pairs = result.all()
+        # Per-task engine: the module-level ``async_engine`` binds pooled
+        # connections to the first event loop that touches them, but the worker
+        # runs every task on a fresh ``asyncio.run`` loop, so a shared engine
+        # leaks connections across loops ("Future attached to a different
+        # loop"). Disposing per task keeps each loop's pool isolated.
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-        logger.info("drift monitor: checking blueprints", count=len(pairs))
+        from app.core.config import get_settings
 
-        checked = 0
-        for blueprint_id, workspace_id in pairs:
-            try:
-                async with async_session_factory() as db:
-                    delta = await compute_variance(blueprint_id, workspace_id, db, mc_runs=30)
-                    if await should_alert(delta):
-                        await dispatch_drift_alert(delta, workspace_id, db)
-                        logger.info(
-                            "drift monitor: alert triggered",
-                            blueprint_id=blueprint_id,
-                            score_delta=delta.score_delta,
-                        )
-                    else:
-                        logger.debug(
-                            "drift monitor: no alert",
-                            blueprint_id=blueprint_id,
-                            score_delta=delta.score_delta,
-                        )
-                    checked += 1
-            except Exception:  # noqa: BLE001 - one bad blueprint must not stop the sweep
-                logger.error(
-                    "drift monitor: error checking blueprint",
-                    blueprint_id=blueprint_id,
-                    exc_info=True,
+        engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with session_factory() as db:
+                result = await db.execute(
+                    select(ActualsRecord.blueprint_id, ActualsRecord.workspace_id).distinct()
                 )
+                pairs = result.all()
 
-        logger.info("drift monitor: done", checked=checked)
-        return checked
+            logger.info("drift monitor: checking blueprints", count=len(pairs))
+
+            checked = 0
+            for blueprint_id, workspace_id in pairs:
+                try:
+                    async with session_factory() as db:
+                        delta = await compute_variance(blueprint_id, workspace_id, db, mc_runs=30)
+                        if await should_alert(delta):
+                            await dispatch_drift_alert(delta, workspace_id, db)
+                            logger.info(
+                                "drift monitor: alert triggered",
+                                blueprint_id=blueprint_id,
+                                score_delta=delta.score_delta,
+                            )
+                        else:
+                            logger.debug(
+                                "drift monitor: no alert",
+                                blueprint_id=blueprint_id,
+                                score_delta=delta.score_delta,
+                            )
+                        checked += 1
+                except Exception:  # noqa: BLE001 - one bad blueprint must not stop the sweep
+                    logger.error(
+                        "drift monitor: error checking blueprint",
+                        blueprint_id=blueprint_id,
+                        exc_info=True,
+                    )
+
+            logger.info("drift monitor: done", checked=checked)
+            return checked
+        finally:
+            await engine.dispose()
 
     return _run_coro(_run())  # type: ignore[no-any-return]
