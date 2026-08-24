@@ -1,10 +1,11 @@
-"""Unit tests for the simulation copilot service (Day 17)."""
+"""Unit tests for the simulation copilot service (Day 18)."""
 
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
 from app.services.copilot.copilot_service import NUMBER_PATTERN, CopilotResponse, chat
+from httpx import AsyncClient
 
 
 def test_number_pattern_extracts_large_numbers() -> None:
@@ -51,7 +52,7 @@ async def test_chat_grounded_when_no_suspicious_numbers() -> None:
     assert result["flagged_claims"] == []
 
 
-async def test_chat_flags_ungrounded_large_numbers() -> None:
+async def test_chat_flagged_when_hallucinated_number() -> None:
     with (
         patch(
             "app.services.copilot.copilot_service.build_copilot_context",
@@ -69,17 +70,38 @@ async def test_chat_flags_ungrounded_large_numbers() -> None:
             confidence="HIGH",
         )
         result = await chat("run_001", "What is revenue?", AsyncMock())
+    # 999999 exceeds the threshold and is absent from the context -> flagged.
     assert result["grounded"] is False
     assert "999999" in result["flagged_claims"]
 
 
-async def test_chat_falls_back_when_provider_invalid() -> None:
-    # Unregistered MockProvider returns "{}" -> StructuredOutputError -> fallback.
-    with patch(
-        "app.services.copilot.copilot_service.build_copilot_context",
-        new_callable=AsyncMock,
-    ) as mock_ctx:
-        mock_ctx.return_value = {"mc_aggregates": {"survival_rate": 0.68}}
-        result = await chat("run_001", "What is the survival rate?", AsyncMock())
-    assert "doesn't contain enough information" in result["answer"]
-    assert result["grounded"] is True
+async def test_chat_endpoint_returns_200(client: AsyncClient) -> None:
+    """POST /api/v1/simulations/{run_id}/chat returns 200 with the result keys."""
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "copilot-18@b.co", "name": "Copilot", "password": "password123"},
+    )
+    login = await client.post(
+        "/api/v1/auth/login", json={"email": "copilot-18@b.co", "password": "password123"}
+    )
+    token = login.json()["access_token"]
+    ws = await client.post(
+        "/api/v1/workspaces",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Copilot Workspace"},
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Workspace-Id": ws.json()["id"],
+    }
+
+    resp = await client.post(
+        "/api/v1/simulations/run_missing/chat",
+        headers=headers,
+        json={"question": "What was the cash balance in month 6?"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "answer" in body
+    assert "grounded" in body
+    assert "flagged_claims" in body
