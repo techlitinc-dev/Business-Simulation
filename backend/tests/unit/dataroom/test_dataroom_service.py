@@ -1,7 +1,11 @@
-"""Unit tests for the data room service (Day 19)."""
+"""Unit tests for the data room service (Day 23)."""
 
 from __future__ import annotations
 
+import csv
+import io
+import json
+import zipfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -109,3 +113,70 @@ async def test_get_dataroom_unknown_token_returns_none(monkeypatch: Any) -> None
     fake = FakeRedis()
     _patch_redis(monkeypatch, fake)
     assert await get_dataroom("doesnotexist") is None
+
+
+def _ticks_24() -> list[dict[str, int]]:
+    return [
+        {"month": m, "revenue": 1000 * m, "cash": 50000 - 1000 * m, "costs": 8000}
+        for m in range(1, 25)
+    ]
+
+
+async def test_download_bundle_zip_contains_all_files(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    fake = FakeRedis()
+    _patch_redis(monkeypatch, fake)
+
+    result = await create_dataroom(
+        run_id="run_024",
+        label="Room",
+        expiry_days=7,
+        pdf_path=None,
+        tick_logs=_ticks_24(),
+        mc_aggregates=MOCK_MC,
+        workspace_name="TestCo",
+        db=AsyncMock(),
+    )
+    meta = await get_dataroom(result["token"])
+    assert meta is not None
+
+    with zipfile.ZipFile(meta["bundle_path"]) as zf:
+        names = zf.namelist()
+        assert "kpi_ticks.csv" in names
+        assert "mc_aggregates.json" in names
+        assert "methodology.txt" in names
+
+        csv_data = zf.read("kpi_ticks.csv").decode()
+        rows = [
+            r
+            for r in csv.reader(io.StringIO(csv_data))
+            if r and r[0] != "month"
+        ]
+        assert len(rows) == 24
+
+        mc = json.loads(zf.read("mc_aggregates.json"))
+        assert "survival_rate" in mc
+
+
+async def test_record_view_twice_increments_to_two(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    fake = FakeRedis()
+    _patch_redis(monkeypatch, fake)
+
+    result = await create_dataroom(
+        run_id="run_005",
+        label="Room",
+        expiry_days=7,
+        pdf_path=None,
+        tick_logs=MOCK_TICKS,
+        mc_aggregates=MOCK_MC,
+        workspace_name="TestCo",
+        db=AsyncMock(),
+    )
+    await record_view(result["token"])
+    await record_view(result["token"])
+    meta = await get_dataroom(result["token"])
+    assert meta is not None
+    assert meta["view_count"] == 2
