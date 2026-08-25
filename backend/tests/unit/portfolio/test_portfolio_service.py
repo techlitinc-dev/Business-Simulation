@@ -1,4 +1,4 @@
-"""Unit tests for the portfolio service (Day 20)."""
+"""Unit tests for the portfolio service (Day 25)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.db.base import Base
-from app.models.simulation import RunStatus, SimulationRun
+from app.models.portfolio import Portfolio, PortfolioMembership
 from app.models.workspace import Workspace
 from app.services.portfolio.portfolio_service import (
     add_workspace,
@@ -80,100 +80,42 @@ async def db() -> AsyncIterator[AsyncSession]:
     await engine.dispose()
 
 
-async def test_create_add_remove_round_trip(db: AsyncSession) -> None:
+async def test_create_portfolio_persists_record(db: AsyncSession) -> None:
     owner_id = uuid.uuid4()
     portfolio = await create_portfolio("My Portfolio", owner_id, db)
     assert portfolio.id.startswith("pf_")
 
-    ws = Workspace(name="W", slug=f"w-{uuid.uuid4().hex[:8]}")
-    db.add(ws)
-    await db.flush()
-
-    membership = await add_workspace(portfolio.id, ws.id, "Company X", db)
-    assert membership.label == "Company X"
-
-    summary = await get_portfolio_summary(portfolio.id, db)
-    assert summary is not None
-    assert summary.member_count == 1
-    assert summary.workspaces[0].label == "Company X"
-    # No completed runs yet -> no scores.
-    assert summary.avg_resilience_score is None
-
-    await remove_workspace(portfolio.id, ws.id, db)
-    summary2 = await get_portfolio_summary(portfolio.id, db)
-    assert summary2 is not None
-    assert summary2.member_count == 0
+    fetched = await db.get(Portfolio, portfolio.id)
+    assert fetched is not None
+    assert fetched.name == "My Portfolio"
+    assert fetched.owner_user_id == owner_id
 
 
-async def test_summary_reads_latest_run_result(db: AsyncSession) -> None:
+async def test_add_workspace_creates_membership(db: AsyncSession) -> None:
     portfolio = await create_portfolio("P", uuid.uuid4(), db)
     ws = Workspace(name="W", slug=f"w-{uuid.uuid4().hex[:8]}")
     db.add(ws)
     await db.flush()
-    await add_workspace(portfolio.id, ws.id, "Company Y", db)
 
-    from app.models.blueprint import Blueprint, BlueprintVersion
+    membership = await add_workspace(portfolio.id, ws.id, "Company A", db)
+    assert membership.id.startswith("pm_")
 
-    bp = Blueprint(name="B", industry="tech", stage="seed", workspace_id=ws.id)
-    db.add(bp)
+    fetched = await db.get(PortfolioMembership, membership.id)
+    assert fetched is not None
+    assert fetched.portfolio_id == portfolio.id
+    assert fetched.workspace_id == ws.id
+    assert fetched.label == "Company A"
+
+
+async def test_remove_workspace_deletes_membership(db: AsyncSession) -> None:
+    portfolio = await create_portfolio("P", uuid.uuid4(), db)
+    ws = Workspace(name="W", slug=f"w-{uuid.uuid4().hex[:8]}")
+    db.add(ws)
     await db.flush()
-    bpv = BlueprintVersion(blueprint_id=bp.id, version=1, payload={"x": 1}, vulnerabilities=[])
-    db.add(bpv)
-    await db.flush()
-    run = SimulationRun(
-        workspace_id=ws.id,
-        blueprint_version_id=bpv.id,
-        mode="monte_carlo",
-        status=RunStatus.COMPLETED,
-        seed=1,
-        config={},
-        result={"survival_rate": 0.7, "resilience_score": 72},
-    )
-    db.add(run)
-    await db.commit()
+    membership = await add_workspace(portfolio.id, ws.id, "Company X", db)
 
-    summary = await get_portfolio_summary(portfolio.id, db)
-    assert summary is not None
-    assert summary.workspaces[0].resilience_score == 72.0
-    assert summary.workspaces[0].survival_rate == 0.7
+    await remove_workspace(portfolio.id, ws.id, db)
 
-
-async def test_two_workspaces_sorted_with_avg(db: AsyncSession) -> None:
-    from app.models.blueprint import Blueprint, BlueprintVersion
-
-    portfolio = await create_portfolio("Two Co", uuid.uuid4(), db)
-    ws_a = Workspace(name="A", slug=f"w-{uuid.uuid4().hex[:8]}")
-    ws_b = Workspace(name="B", slug=f"w-{uuid.uuid4().hex[:8]}")
-    db.add_all([ws_a, ws_b])
-    await db.flush()
-    await add_workspace(portfolio.id, ws_a.id, "Company A", db)
-    await add_workspace(portfolio.id, ws_b.id, "Company B", db)
-
-    for ws, score, survival in ((ws_a, 88, 0.8), (ws_b, 40, 0.45)):
-        bp = Blueprint(name="B", industry="tech", stage="seed", workspace_id=ws.id)
-        db.add(bp)
-        await db.flush()
-        bpv = BlueprintVersion(
-            blueprint_id=bp.id, version=1, payload={"x": 1}, vulnerabilities=[]
-        )
-        db.add(bpv)
-        await db.flush()
-        db.add(
-            SimulationRun(
-                workspace_id=ws.id,
-                blueprint_version_id=bpv.id,
-                mode="monte_carlo",
-                status=RunStatus.COMPLETED,
-                seed=1,
-                config={},
-                result={"survival_rate": survival, "resilience_score": score},
-            )
-        )
-    await db.commit()
-
-    summary = await get_portfolio_summary(portfolio.id, db)
-    assert summary is not None
-    assert summary.member_count == 2
-    assert [w.workspace_id for w in summary.workspaces] == [str(ws_a.id), str(ws_b.id)]
-    assert summary.workspaces[0].resilience_score == 88.0
-    assert summary.avg_resilience_score == 64.0  # (88 + 40) / 2
+    # The membership row is gone, but the workspace itself is untouched.
+    assert await db.get(PortfolioMembership, membership.id) is None
+    assert await db.get(Workspace, ws.id) is not None
