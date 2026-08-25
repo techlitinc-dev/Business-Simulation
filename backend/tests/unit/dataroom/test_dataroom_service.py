@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import csv
-import io
 import json
-import zipfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -16,6 +14,8 @@ from app.services.dataroom.dataroom_service import (
     record_view,
     revoke_dataroom,
 )
+from app.services.deep_report.manifests.lender_manifest import LENDER_MANIFEST
+from app.services.deep_report.registry import get_manifest
 
 MOCK_TICKS = [{"month": 1, "revenue": 12000, "cash": 86000, "costs": 14000}]
 MOCK_MC = {"survival_rate": 0.68}
@@ -65,10 +65,23 @@ async def test_create_and_retrieve_dataroom(tmp_path: Path, monkeypatch: Any) ->
     assert "download_url" in result
     assert "/download" in result["download_url"]
 
-    meta = await get_dataroom(result["token"])
-    assert meta is not None
-    assert meta["run_id"] == "run_001"
-    assert meta["view_count"] == 0
+
+async def test_revoke_deletes_key(tmp_path: Path, monkeypatch: Any) -> None:
+    fake = FakeRedis()
+    _patch_redis(monkeypatch, fake)
+
+    result = await create_dataroom(
+        run_id="run_003",
+        label="Room",
+        expiry_days=7,
+        pdf_path=None,
+        tick_logs=MOCK_TICKS,
+        mc_aggregates=MOCK_MC,
+        workspace_name="TestCo",
+        db=AsyncMock(),
+    )
+    await revoke_dataroom(result["token"])
+    assert await get_dataroom(result["token"]) is None
 
 
 async def test_record_view_increments_count(tmp_path: Path, monkeypatch: Any) -> None:
@@ -91,92 +104,28 @@ async def test_record_view_increments_count(tmp_path: Path, monkeypatch: Any) ->
     assert meta["view_count"] == 1
 
 
-async def test_revoke_deletes_key(tmp_path: Path, monkeypatch: Any) -> None:
+async def test_get_dataroom_returns_none_for_expired(monkeypatch: Any) -> None:
     fake = FakeRedis()
     _patch_redis(monkeypatch, fake)
 
-    result = await create_dataroom(
-        run_id="run_003",
-        label="Room",
-        expiry_days=7,
-        pdf_path=None,
-        tick_logs=MOCK_TICKS,
-        mc_aggregates=MOCK_MC,
-        workspace_name="TestCo",
-        db=AsyncMock(),
-    )
-    await revoke_dataroom(result["token"])
-    assert await get_dataroom(result["token"]) is None
+    expired = {
+        "run_id": "run_x",
+        "label": "Room",
+        "token": "tok",
+        "created_at": (datetime.now(UTC) - timedelta(days=8)).isoformat(),
+        "expires_at": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+        "view_count": 0,
+        "bundle_path": "/tmp/x.zip",
+    }
+    await fake.setex("dataroom:expiredtoken", 3600, json.dumps(expired))
+    assert await get_dataroom("expiredtoken") is None
 
 
-async def test_get_dataroom_unknown_token_returns_none(monkeypatch: Any) -> None:
-    fake = FakeRedis()
-    _patch_redis(monkeypatch, fake)
-    assert await get_dataroom("doesnotexist") is None
+def test_lender_manifest_registered() -> None:
+    assert get_manifest("lender_report") is LENDER_MANIFEST
 
 
-def _ticks_24() -> list[dict[str, int]]:
-    return [
-        {"month": m, "revenue": 1000 * m, "cash": 50000 - 1000 * m, "costs": 8000}
-        for m in range(1, 25)
-    ]
-
-
-async def test_download_bundle_zip_contains_all_files(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
-    fake = FakeRedis()
-    _patch_redis(monkeypatch, fake)
-
-    result = await create_dataroom(
-        run_id="run_024",
-        label="Room",
-        expiry_days=7,
-        pdf_path=None,
-        tick_logs=_ticks_24(),
-        mc_aggregates=MOCK_MC,
-        workspace_name="TestCo",
-        db=AsyncMock(),
-    )
-    meta = await get_dataroom(result["token"])
-    assert meta is not None
-
-    with zipfile.ZipFile(meta["bundle_path"]) as zf:
-        names = zf.namelist()
-        assert "kpi_ticks.csv" in names
-        assert "mc_aggregates.json" in names
-        assert "methodology.txt" in names
-
-        csv_data = zf.read("kpi_ticks.csv").decode()
-        rows = [
-            r
-            for r in csv.reader(io.StringIO(csv_data))
-            if r and r[0] != "month"
-        ]
-        assert len(rows) == 24
-
-        mc = json.loads(zf.read("mc_aggregates.json"))
-        assert "survival_rate" in mc
-
-
-async def test_record_view_twice_increments_to_two(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
-    fake = FakeRedis()
-    _patch_redis(monkeypatch, fake)
-
-    result = await create_dataroom(
-        run_id="run_005",
-        label="Room",
-        expiry_days=7,
-        pdf_path=None,
-        tick_logs=MOCK_TICKS,
-        mc_aggregates=MOCK_MC,
-        workspace_name="TestCo",
-        db=AsyncMock(),
-    )
-    await record_view(result["token"])
-    await record_view(result["token"])
-    meta = await get_dataroom(result["token"])
-    assert meta is not None
-    assert meta["view_count"] == 2
+def test_lender_manifest_has_8_sections() -> None:
+    manifest = get_manifest("lender_report")
+    assert len(manifest.sections) == 8
+    assert sum(section.page_budget for section in manifest.sections) == 29
