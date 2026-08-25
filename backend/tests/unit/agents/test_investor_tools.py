@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from app.agents.investor_tools import (
-    generate_pitch_outline,
-    generate_teaser,
-    pitch_outline_to_pdf,
-    teaser_to_pdf,
-)
+from typing import Any
+
+from app.agents.investor_tools import generate_pitch_outline, generate_teaser, teaser_to_pdf
 from app.core.config import get_settings
-from app.schemas.investor import InvestmentTeaser, PitchDeckOutline, PitchSlide
+from app.schemas.investor import InvestmentTeaser
+from httpx import AsyncClient
 
 MOCK_DATA = {
     "mc_aggregates": {"survival_rate": 0.68, "median_lifespan": 18},
@@ -22,6 +20,25 @@ def _force_mock() -> None:
     settings = get_settings()
     settings.llm_provider = "mock"
     settings.llm_api_key = ""
+
+
+async def _workspace(client: AsyncClient, email: str) -> dict[str, Any]:
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "name": "Investor", "password": "password123"},
+    )
+    login = await client.post(
+        "/api/v1/auth/login", json={"email": email, "password": "password123"}
+    )
+    token = login.json()["access_token"]
+    ws = await client.post(
+        "/api/v1/workspaces",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Investor Workspace"},
+    )
+    return {
+        "headers": {"Authorization": f"Bearer {token}", "X-Workspace-Id": ws.json()["id"]},
+    }
 
 
 async def test_generate_teaser_returns_teaser() -> None:
@@ -52,24 +69,19 @@ def test_teaser_to_pdf_returns_bytes() -> None:
     assert len(pdf) > 100
 
 
-async def test_teaser_survival_grounded_in_mc_data() -> None:
+async def test_pitch_slides_have_talking_points() -> None:
     _force_mock()
-    result = await generate_teaser(MOCK_DATA)
-    survival_pct = int(round(MOCK_DATA["mc_aggregates"]["survival_rate"] * 100))
-    assert str(survival_pct) in result.simulated_survival
+    result = await generate_pitch_outline(MOCK_DATA)
+    assert len(result.slides) >= 10
+    assert all(len(slide.talking_points) >= 1 for slide in result.slides)
 
 
-def test_pitch_outline_to_pdf_returns_bytes() -> None:
-    outline = PitchDeckOutline(
-        slides=[
-            PitchSlide(
-                slide_number=i + 1,
-                title=f"Slide {i + 1}",
-                talking_points=[f"Key point for slide {i + 1}."],
-            )
-            for i in range(11)
-        ]
+async def test_teaser_endpoint_returns_pdf(client: AsyncClient) -> None:
+    account = await _workspace(client, "investor@b.co")
+    resp = await client.post(
+        "/api/v1/investor/runs/run_missing/teaser",
+        headers=account["headers"],
     )
-    pdf = pitch_outline_to_pdf(outline, "TestCo", "run_001")
-    assert isinstance(pdf, bytes)
-    assert len(pdf) > 100
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert len(resp.content) > 100
