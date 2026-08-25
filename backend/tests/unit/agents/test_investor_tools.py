@@ -1,10 +1,15 @@
-"""Unit tests for the investor tools agent (Day 19)."""
+"""Unit tests for the investor tools agent (Day 22)."""
 
 from __future__ import annotations
 
-from app.agents.investor_tools import generate_pitch_outline, generate_teaser, teaser_to_pdf
+from app.agents.investor_tools import (
+    generate_pitch_outline,
+    generate_teaser,
+    pitch_outline_to_pdf,
+    teaser_to_pdf,
+)
 from app.core.config import get_settings
-from app.schemas.investor import InvestmentTeaser
+from app.schemas.investor import InvestmentTeaser, PitchDeckOutline, PitchSlide
 
 MOCK_DATA = {
     "mc_aggregates": {"survival_rate": 0.68, "median_lifespan": 18},
@@ -43,5 +48,28 @@ def test_teaser_to_pdf_returns_bytes() -> None:
         risks=["High churn"],
     )
     pdf = teaser_to_pdf(teaser, "TestCo", "run_001")
+    assert isinstance(pdf, bytes)
+    assert len(pdf) > 100
+
+
+async def test_teaser_survival_grounded_in_mc_data() -> None:
+    _force_mock()
+    result = await generate_teaser(MOCK_DATA)
+    survival_pct = int(round(MOCK_DATA["mc_aggregates"]["survival_rate"] * 100))
+    assert str(survival_pct) in result.simulated_survival
+
+
+def test_pitch_outline_to_pdf_returns_bytes() -> None:
+    outline = PitchDeckOutline(
+        slides=[
+            PitchSlide(
+                slide_number=i + 1,
+                title=f"Slide {i + 1}",
+                talking_points=[f"Key point for slide {i + 1}."],
+            )
+            for i in range(11)
+        ]
+    )
+    pdf = pitch_outline_to_pdf(outline, "TestCo", "run_001")
     assert isinstance(pdf, bytes)
     assert len(pdf) > 100
