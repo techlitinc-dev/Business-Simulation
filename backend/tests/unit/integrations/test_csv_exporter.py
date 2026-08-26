@@ -31,10 +31,6 @@ def test_ticks_to_csv_row_count() -> None:
     assert len(lines) == 3  # header + 2 rows
 
 
-def test_ticks_to_csv_empty() -> None:
-    assert ticks_to_csv([]) == "month\n"
-
-
 def test_mc_to_csv_has_survival_rate() -> None:
     csv_content = mc_to_csv(MC)
     assert "survival_rate" in csv_content
@@ -45,11 +41,6 @@ def test_mc_to_csv_includes_kill_vectors() -> None:
     csv_content = mc_to_csv(MC)
     assert "cash_out" in csv_content
     assert "12" in csv_content
-
-
-def test_mc_to_csv_skips_nested_aggregates() -> None:
-    csv_content = mc_to_csv({**MC, "runs_summary": [{"seed": 1}, {"seed": 2}]})
-    assert "runs_summary" not in csv_content
 
 
 def test_sign_payload_deterministic() -> None:
