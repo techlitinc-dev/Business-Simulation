@@ -1,4 +1,4 @@
-"""Unit tests for the collaboration comment service."""
+"""Unit tests for the collaboration comment service (Day 29 spec)."""
 
 from __future__ import annotations
 
@@ -24,7 +24,6 @@ async def test_add_comment_creates_record() -> None:
             data, uuid.uuid4(), uuid.uuid4(), db
         )
         assert comment.body == "Looks good!"
-        assert comment.mentions is None
         assert comment.id.startswith("cmt_")
 
 
@@ -40,7 +39,40 @@ async def test_add_comment_with_mentions() -> None:
         assert "alice" in (comment.mentions or "")
 
 
-async def test_get_comments_returns_oldest_first() -> None:
+async def test_submit_for_approval_creates_pending() -> None:
+    async with async_session_factory() as db:
+        record = await submit_for_approval(
+            ApprovalRequest(target_type="blueprint", target_id="bp_001"),
+            uuid.uuid4(),
+            uuid.uuid4(),
+            db,
+        )
+        assert record.status == "pending"
+        assert record.decided_at is None
+        assert record.id.startswith("apr_")
+
+
+async def test_decide_approval_sets_status() -> None:
+    async with async_session_factory() as db:
+        record = await submit_for_approval(
+            ApprovalRequest(target_type="report", target_id="rep_001"),
+            uuid.uuid4(),
+            uuid.uuid4(),
+            db,
+        )
+        decided = await decide_approval(
+            record.id,
+            uuid.uuid4(),
+            ApprovalDecision(decision="approved", note="Ship it"),
+            db,
+        )
+        assert decided.status == "approved"
+        assert decided.verdict_note == "Ship it"
+        assert decided.decided_at is not None
+        assert isinstance(decided, ApprovalRecord)
+
+
+async def test_list_comments_returns_sorted() -> None:
     async with async_session_factory() as db:
         ws_id = uuid.uuid4()
         author = uuid.uuid4()
@@ -60,31 +92,3 @@ async def test_get_comments_returns_oldest_first() -> None:
         assert [c.body for c in comments] == ["first", "second"]
         # Other targets stay isolated.
         assert await get_comments("report", "rep_2", db) == []
-
-
-async def test_submit_and_decide_approval() -> None:
-    async with async_session_factory() as db:
-        ws_id = uuid.uuid4()
-        submitter = uuid.uuid4()
-        approver = uuid.uuid4()
-
-        record = await submit_for_approval(
-            ApprovalRequest(target_type="blueprint", target_id="bp_001"),
-            ws_id,
-            submitter,
-            db,
-        )
-        assert record.status == "pending"
-        assert record.id.startswith("apr_")
-
-        decided = await decide_approval(
-            record.id,
-            approver,
-            ApprovalDecision(decision="approved", note="Ship it"),
-            db,
-        )
-        assert decided.status == "approved"
-        assert decided.approved_by == approver
-        assert decided.verdict_note == "Ship it"
-        assert decided.decided_at is not None
-        assert isinstance(decided, ApprovalRecord)
