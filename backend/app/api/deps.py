@@ -71,7 +71,7 @@ async def get_current_user(
         user = await db.get(User, uuid.UUID(user_id))
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
-    if user is None:
+    if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user
 

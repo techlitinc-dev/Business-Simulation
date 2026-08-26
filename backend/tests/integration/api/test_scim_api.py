@@ -103,6 +103,41 @@ async def test_scim_deprovision_user(client: AsyncClient) -> None:
     assert again.status_code == 204
 
 
+async def test_scim_deprovisioned_user_cannot_exchange_or_use_tokens(
+    client: AsyncClient,
+) -> None:
+    account = await _register_workspace(client, "scim5@b.co")
+    provisioned = await client.post(
+        f"/api/v1/scim/v2/Users?workspace_id={account['workspace_id']}",
+        json={"userName": "deactive@example.com", "active": True},
+        headers=SCIM_HEADERS,
+    )
+    user_id = provisioned.json()["id"]
+
+    # Fresh exchange works while the account is active.
+    exchange = await client.post(
+        "/api/v1/sso/oidc/exchange",
+        json={"email": "deactive@example.com", "external_id": "idp-1"},
+    )
+    assert exchange.status_code == 200
+
+    await client.delete(f"/api/v1/scim/v2/Users/{user_id}", headers=SCIM_HEADERS)
+
+    # Deprovisioned account can no longer mint tokens via OIDC exchange.
+    blocked = await client.post(
+        "/api/v1/sso/oidc/exchange",
+        json={"email": "deactive@example.com", "external_id": "idp-1"},
+    )
+    assert blocked.status_code == 401
+
+    # A token issued before deprovisioning is rejected on protected routes.
+    old_token = exchange.json()["access_token"]
+    me = await client.get(
+        "/api/v1/users/me", headers={"Authorization": f"Bearer {old_token}"}
+    )
+    assert me.status_code == 401
+
+
 async def test_scim_patch_deactivate(client: AsyncClient) -> None:
     account = await _register_workspace(client, "scim4@b.co")
     provisioned = await client.post(

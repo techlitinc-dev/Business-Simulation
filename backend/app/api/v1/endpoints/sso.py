@@ -6,7 +6,7 @@ callback and create/link user accounts using the existing auth service.
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.api.deps import DbSession
@@ -56,6 +56,10 @@ async def oidc_exchange(
         )
         await db.commit()
         logger.info("[sso] Created new user via SSO: %s", payload.email)
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=401, detail="Account is deactivated"
+        )
     else:
         logger.info("[sso] Linked existing user via SSO: %s", payload.email)
 
