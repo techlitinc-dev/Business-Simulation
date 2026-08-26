@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { CommentThread } from '@/features/collaboration/CommentThread'
 import { useBlueprint } from './api'
 import { blueprintToFlow } from './canvas-layout'
 import {
@@ -89,6 +90,12 @@ export default function BlueprintCanvasPage() {
               <span className="mr-2 inline-block h-2 w-2 rounded-full bg-border" /> low risk
             </Panel>
           </ReactFlow>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <h2 className="mb-3 text-base font-semibold">Comments</h2>
+          <CommentThread targetType="blueprint" targetId={blueprint.id} />
         </CardContent>
       </Card>
     </div>

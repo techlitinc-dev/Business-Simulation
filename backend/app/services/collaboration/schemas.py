@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 TargetType = Literal["blueprint", "run", "report", "section"]
 
@@ -27,6 +28,11 @@ class CommentOut(BaseModel):
     body: str
     author_user_id: str
     created_at: datetime
+
+    @field_validator("author_user_id", mode="before")
+    @classmethod
+    def _uuid_to_str(cls, value: object) -> object:
+        return str(value) if isinstance(value, uuid.UUID) else value
 
 
 class ApprovalRequest(BaseModel):
