@@ -54,5 +54,6 @@ filterwarnings = [
     "ignore:.*'crypt' is deprecated.*:DeprecationWarning",
     "ignore:Accessing argon2.__version__ is deprecated.*:DeprecationWarning",
     # matplotlib 3.9 pulls pyparsing 3.x which deprecates oneOf/parseString
-    "ignore::pyparsing.warnings.PyparsingDeprecationWarning",
+    # (pyparsing >= 3.1 removed the pyparsing.warnings module, so match by message)
+    "ignore:.*(oneOf|parseString).*:DeprecationWarning",
 ]
