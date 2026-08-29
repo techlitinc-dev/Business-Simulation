@@ -35,7 +35,11 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Production entrypoint (gunicorn + uvicorn workers). The dev-mode
+    # `uvicorn --reload` watches the whole mounted tree and can hang forever
+    # on "Waiting for background tasks to complete" after a source change,
+    # leaving the API unresponsive (504 Gateway Time-out).
+    command: gunicorn -k uvicorn.workers.UvicornWorker -w 4 -b 0.0.0.0:8000 app.main:app
     depends_on:
       db:
         condition: service_healthy
