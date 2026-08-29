@@ -1,6 +1,7 @@
-import { Suspense, lazy } from 'react'
+import { Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 
+import { lazyWithRetry } from '@/lib/lazyWithRetry'
 import AppShell from '@/components/layout/AppShell'
 import PageTransition from '@/components/layout/PageTransition'
 import RequireOnboarding from '@/features/onboarding/RequireOnboarding'
@@ -21,51 +22,51 @@ function withSuspense(Component: React.LazyExoticComponent<React.ComponentType<u
   )
 }
 
-const LoginPage = lazy(() => import('@/features/auth/LoginPage'))
-const RegisterPage = lazy(() => import('@/features/auth/RegisterPage'))
-const AcceptInvitePage = lazy(() => import('@/features/auth/AcceptInvitePage'))
-const OnboardingWizard = lazy(() => import('@/features/onboarding/OnboardingWizard'))
-const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
-const BlueprintListPage = lazy(() => import('@/features/blueprint/BlueprintListPage'))
-const BuilderWizard = lazy(() => import('@/features/blueprint/BuilderWizard'))
-const BlueprintDetailPage = lazy(() => import('@/features/blueprint/BlueprintDetailPage'))
-const BlueprintEditPage = lazy(() => import('@/features/blueprint/BlueprintEditPage'))
-const BlueprintCanvasPage = lazy(() => import('@/features/blueprint/CanvasView'))
-const WhatIfLabRoute = lazy(() => import('@/features/whatif/WhatIfLabRoute'))
-const ActualsRoute = lazy(() => import('@/features/actuals/ActualsRoute'))
-const PortfolioRoute = lazy(() => import('@/features/portfolio/PortfolioRoute'))
-const SimulationListPage = lazy(() => import('@/features/simulation/SimulationListPage'))
-const RunnerPage = lazy(() => import('@/features/simulation/RunnerPage'))
-const DecisionJournalPage = lazy(() =>
+const LoginPage = lazyWithRetry(() => import('@/features/auth/LoginPage'))
+const RegisterPage = lazyWithRetry(() => import('@/features/auth/RegisterPage'))
+const AcceptInvitePage = lazyWithRetry(() => import('@/features/auth/AcceptInvitePage'))
+const OnboardingWizard = lazyWithRetry(() => import('@/features/onboarding/OnboardingWizard'))
+const DashboardPage = lazyWithRetry(() => import('@/features/dashboard/DashboardPage'))
+const BlueprintListPage = lazyWithRetry(() => import('@/features/blueprint/BlueprintListPage'))
+const BuilderWizard = lazyWithRetry(() => import('@/features/blueprint/BuilderWizard'))
+const BlueprintDetailPage = lazyWithRetry(() => import('@/features/blueprint/BlueprintDetailPage'))
+const BlueprintEditPage = lazyWithRetry(() => import('@/features/blueprint/BlueprintEditPage'))
+const BlueprintCanvasPage = lazyWithRetry(() => import('@/features/blueprint/CanvasView'))
+const WhatIfLabRoute = lazyWithRetry(() => import('@/features/whatif/WhatIfLabRoute'))
+const ActualsRoute = lazyWithRetry(() => import('@/features/actuals/ActualsRoute'))
+const PortfolioRoute = lazyWithRetry(() => import('@/features/portfolio/PortfolioRoute'))
+const SimulationListPage = lazyWithRetry(() => import('@/features/simulation/SimulationListPage'))
+const RunnerPage = lazyWithRetry(() => import('@/features/simulation/RunnerPage'))
+const DecisionJournalPage = lazyWithRetry(() =>
   import('@/features/journal/DecisionJournalPage').then((m) => ({
     default: m.DecisionJournalPage,
   })),
 )
-const GhostSetupPage = lazy(() => import('@/features/ghost/GhostSetupPage'))
-const GhostSpectatorPage = lazy(() => import('@/features/ghost/GhostSpectatorPage'))
-const ReportPage = lazy(() => import('@/features/reports/ReportPage'))
-const ReportsListPage = lazy(() => import('@/features/reports/ReportsListPage'))
-const SharedReportPage = lazy(() => import('@/features/reports/SharedReportPage'))
-const CompareRoute = lazy(() => import('@/features/reports/CompareRoute'))
-const LandingPage = lazy(() => import('@/features/marketing/LandingPage'))
-const PricingPage = lazy(() => import('@/features/marketing/PricingPage'))
-const MarketplacePage = lazy(() => import('@/features/marketplace/MarketplacePage'))
-const ScenarioDetailPage = lazy(() =>
+const GhostSetupPage = lazyWithRetry(() => import('@/features/ghost/GhostSetupPage'))
+const GhostSpectatorPage = lazyWithRetry(() => import('@/features/ghost/GhostSpectatorPage'))
+const ReportPage = lazyWithRetry(() => import('@/features/reports/ReportPage'))
+const ReportsListPage = lazyWithRetry(() => import('@/features/reports/ReportsListPage'))
+const SharedReportPage = lazyWithRetry(() => import('@/features/reports/SharedReportPage'))
+const CompareRoute = lazyWithRetry(() => import('@/features/reports/CompareRoute'))
+const LandingPage = lazyWithRetry(() => import('@/features/marketing/LandingPage'))
+const PricingPage = lazyWithRetry(() => import('@/features/marketing/PricingPage'))
+const MarketplacePage = lazyWithRetry(() => import('@/features/marketplace/MarketplacePage'))
+const ScenarioDetailPage = lazyWithRetry(() =>
   import('@/features/marketplace/ScenarioDetailPage'),
 )
-const LeaderboardPage = lazy(() => import('@/features/leaderboard/LeaderboardPage'))
-const BillingPage = lazy(() => import('@/features/billing/BillingPage'))
-const MembersPage = lazy(() => import('@/features/settings/MembersPage'))
-const ProfilePage = lazy(() => import('@/features/settings/ProfilePage'))
-const SecurityPage = lazy(() => import('@/features/settings/SecurityPage'))
-const WorkspacePage = lazy(() => import('@/features/settings/WorkspacePage'))
-const ApiKeysPanel = lazy(() => import('@/features/settings/ApiKeysPanel'))
-const IntegrationsPage = lazy(() => import('@/features/settings/IntegrationsPage'))
-const AdminDashboardPage = lazy(() =>
+const LeaderboardPage = lazyWithRetry(() => import('@/features/leaderboard/LeaderboardPage'))
+const BillingPage = lazyWithRetry(() => import('@/features/billing/BillingPage'))
+const MembersPage = lazyWithRetry(() => import('@/features/settings/MembersPage'))
+const ProfilePage = lazyWithRetry(() => import('@/features/settings/ProfilePage'))
+const SecurityPage = lazyWithRetry(() => import('@/features/settings/SecurityPage'))
+const WorkspacePage = lazyWithRetry(() => import('@/features/settings/WorkspacePage'))
+const ApiKeysPanel = lazyWithRetry(() => import('@/features/settings/ApiKeysPanel'))
+const IntegrationsPage = lazyWithRetry(() => import('@/features/settings/IntegrationsPage'))
+const AdminDashboardPage = lazyWithRetry(() =>
   import('@/features/settings/admin/AdminDashboardPage'),
 )
-const AdminUsersPage = lazy(() => import('@/features/settings/admin/AdminUsersPage'))
-const AdminWorkspacesPage = lazy(() =>
+const AdminUsersPage = lazyWithRetry(() => import('@/features/settings/admin/AdminUsersPage'))
+const AdminWorkspacesPage = lazyWithRetry(() =>
   import('@/features/settings/admin/AdminWorkspacesPage'),
 )
 
