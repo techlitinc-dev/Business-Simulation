@@ -375,6 +375,16 @@ def _next_hurdle_month(config: dict[str, Any], current_month: int) -> int | None
     return None
 
 
+def _industry_pack_for_version(version: BlueprintVersion) -> Any | None:
+    """Resolve an industry pack by the blueprint's industry, if any."""
+    industry = getattr(getattr(version, "blueprint", None), "industry", None)
+    if not industry:
+        return None
+    from app.services.industry_packs.pack_registry import get_pack
+
+    return get_pack(industry)
+
+
 async def start_stress_run(
     db: AsyncSession,
     *,
@@ -386,6 +396,10 @@ async def start_stress_run(
 
     Deterministic per seed: hurdle months are sampled once with
     ``random.Random(seed)`` and stored in ``run.config["hurdle_months"]``.
+
+    When the blueprint's industry maps to an industry pack, the pack's hurdle
+    library is attached to the config so stress runs produce pack-specific
+    hurdles (Churn Spike, Pricing Pressure, ...) instead of LLM-generated ones.
     """
     version = await get_workspace_version(db, workspace_id, req.blueprint_version_id)
     seed = req.seed if req.seed is not None else secrets.randbelow(2**31)
@@ -395,6 +409,12 @@ async def start_stress_run(
     hurdle_months = build_hurdle_schedule(rng, months)
     config = req.config.model_dump(mode="json")
     config["hurdle_months"] = hurdle_months
+
+    pack = _industry_pack_for_version(version)
+    if pack is not None:
+        config["industry_pack_id"] = pack.id
+        config["hurdle_library"] = pack.hurdle_library
+        config["hurdle_cursor"] = 0
 
     run = SimulationRun(
         workspace_id=workspace_id,
@@ -489,26 +509,51 @@ async def run_stress_segment(
     hurdle_month = next_hurdle
     kpis = await _latest_kpis(db, run.id, state)
 
-    chronicle = Chronicle()
-    if run.config.get("chronicle"):
-        chronicle = Chronicle.from_dict(run.config["chronicle"])
-
     difficulty = _difficulty_value(run.config.get("difficulty", "standard"))
-    generator = HurdleGenerator(provider, on_response=_meter_tokens)
-    hurdle = await generator.generate(
-        state, kpis, chronicle, difficulty=difficulty, month=hurdle_month
-    )
+    library = run.config.get("hurdle_library")
+    pack_sourced = bool(library)
+    if pack_sourced:
+        # Pack-sourced hurdle: deterministic narrative + options + projections,
+        # no LLM. Reuses the pure Strategist.project_option for forward math.
+        from app.services.industry_packs import simulation as pack_sim
 
-    # Strategist: attach a 12-month engine projection per option.
-    strategist = Strategist(provider, on_response=_meter_tokens)
-    advise = await strategist.advise(state, kpis, hurdle, chronicle)
-    payload = hurdle.model_dump(mode="json")
-    payload["options_projection"] = [
-        p.model_dump(mode="json") for p in advise.projections
-    ]
-    payload["strategic_options"] = [
-        o.model_dump(mode="json") for o in advise.options
-    ]
+        entries = list(library)
+        cursor = int(run.config.get("hurdle_cursor", 0))
+        entry = entries[cursor % len(entries)]
+        hurdle = pack_sim.build_pack_hurdle_event(entry, month=hurdle_month)
+        options = pack_sim.build_pack_strategic_options(entry)
+        strategist = Strategist(provider, on_response=_meter_tokens)
+        projections = [
+            strategist.project_option(state, option, hurdle, seed=run.seed)
+            for option in options
+        ]
+        run.config["hurdle_cursor"] = cursor + 1
+        payload = hurdle.model_dump(mode="json")
+        payload["options_projection"] = [
+            p.model_dump(mode="json") for p in projections
+        ]
+        payload["strategic_options"] = [
+            o.model_dump(mode="json") for o in options
+        ]
+    else:
+        chronicle = Chronicle()
+        if run.config.get("chronicle"):
+            chronicle = Chronicle.from_dict(run.config["chronicle"])
+        generator = HurdleGenerator(provider, on_response=_meter_tokens)
+        hurdle = await generator.generate(
+            state, kpis, chronicle, difficulty=difficulty, month=hurdle_month
+        )
+
+        # Strategist: attach a 12-month engine projection per option.
+        strategist = Strategist(provider, on_response=_meter_tokens)
+        advise = await strategist.advise(state, kpis, hurdle, chronicle)
+        payload = hurdle.model_dump(mode="json")
+        payload["options_projection"] = [
+            p.model_dump(mode="json") for p in advise.projections
+        ]
+        payload["strategic_options"] = [
+            o.model_dump(mode="json") for o in advise.options
+        ]
 
     event = SimulationEvent(
         run_id=run.id,
@@ -520,7 +565,8 @@ async def run_stress_segment(
 
     # Park state + chronicle, then wait for the user's decision.
     run.state_snapshot = state_to_dict(state)
-    run.config["chronicle"] = chronicle.to_dict()
+    if not pack_sourced:
+        run.config["chronicle"] = chronicle.to_dict()
     run.current_month = hurdle_month
     run.status = RunStatus.AWAITING_DECISION
     await db.commit()

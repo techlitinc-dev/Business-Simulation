@@ -15,6 +15,12 @@ from app.schemas.blueprint import (
 )
 from app.services import blueprint_service
 from app.services.blueprint_service import ValidationReport
+from app.services.industry_packs.blueprint_template import build_blueprint_from_pack
+from app.services.industry_packs.pack_registry import get_pack
+
+# Importing registers the packs in the registry (module side-effect).
+import app.services.industry_packs.ecommerce_pack  # noqa: F401
+import app.services.industry_packs.saas_pack  # noqa: F401
 
 router = APIRouter(prefix="/blueprints", tags=["blueprints"])
 
@@ -25,16 +31,34 @@ async def create_blueprint(
     db: DbSession,
     workspace: CurrentWorkspace,
 ) -> BlueprintDetailResponse:
-    report = blueprint_service.validate_blueprint(payload.payload)
+    blueprint_payload = payload.payload
+    industry = payload.industry
+    if payload.industry_pack_id is not None:
+        pack = get_pack(payload.industry_pack_id)
+        if pack is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Pack '{payload.industry_pack_id}' not found",
+            )
+        blueprint_payload = build_blueprint_from_pack(pack, stage=payload.stage)
+        industry = pack.id
+    elif industry is None:
+        raise HTTPException(
+            status_code=422,
+            detail="industry is required when 'payload' is provided",
+        )
+
+    assert blueprint_payload is not None  # BlueprintCreate requires one source.
+    report = blueprint_service.validate_blueprint(blueprint_payload)
     if not report.is_valid:
         raise HTTPException(status_code=422, detail=report.model_dump())
     return await blueprint_service.create_blueprint(
         db,
         workspace_id=workspace.id,
         name=payload.name,
-        industry=payload.industry,
+        industry=industry,
         stage=payload.stage,
-        payload=payload.payload,
+        payload=blueprint_payload,
     )
 
 

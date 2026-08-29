@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _HTML_TAG_RE = re.compile(r"<[^>]*>")
 
@@ -118,18 +118,35 @@ class BlueprintPayload(BaseModel):
 
 
 class BlueprintCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=120)
-    industry: str = Field(min_length=1, max_length=120)
+    industry: str | None = Field(default=None, min_length=1, max_length=120)
     stage: str = Field(min_length=1, max_length=120)
-    payload: BlueprintPayload
+    #: Either an explicit Format A payload or an industry pack id to build one
+    #: from (with the pack's engine params + blueprint template pre-filled).
+    payload: BlueprintPayload | None = None
+    industry_pack_id: str | None = Field(default=None, min_length=1, max_length=120)
 
     @field_validator("name", "industry", "stage")
     @classmethod
-    def strip_html_fields(cls, value: str) -> str:
+    def strip_html_fields(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         stripped = strip_html(value)
         if not stripped:
             raise ValueError("must not contain only HTML tags")
         return stripped
+
+    @model_validator(mode="after")
+    def require_payload_source(self) -> "BlueprintCreate":
+        has_payload = self.payload is not None
+        has_pack = self.industry_pack_id is not None
+        if has_payload == has_pack:
+            raise ValueError(
+                "Provide exactly one of 'payload' or 'industry_pack_id'"
+            )
+        return self
 
 
 class BlueprintUpdate(BaseModel):

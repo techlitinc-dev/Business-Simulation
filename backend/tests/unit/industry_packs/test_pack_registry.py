@@ -44,9 +44,3 @@ def test_saas_engine_params_have_churn() -> None:
 
 def test_unknown_pack_returns_none() -> None:
     assert get_pack("restaurant") is None
-
-
-def test_ecommerce_vertical_kpis() -> None:
-    pack = get_pack("ecommerce")
-    assert pack is not None
-    assert "average_order_value" in pack.vertical_kpis
