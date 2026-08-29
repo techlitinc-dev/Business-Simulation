@@ -5,6 +5,7 @@ import BurnChart from '@/components/charts/BurnChart'
 import CashCurve from '@/components/charts/CashCurve'
 import { ResilienceGauge } from '@/components/charts/ResilienceGauge'
 import { BenchmarkBadge } from '@/features/benchmark/BenchmarkBadge'
+import { CertificationBadge } from '@/features/gamification/CertificationBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -194,6 +195,9 @@ export default function DashboardPage() {
           <CardContent className="flex justify-center py-6 flex-col items-center">
             <ResilienceGauge score={resilienceScore} />
             <BenchmarkBadge score={resilienceScore} />
+            {latestCompleted && (
+              <CertificationBadge runId={latestCompleted.id} percentile={90} />
+            )}
           </CardContent>
         </Card>
         <Card className="panel">

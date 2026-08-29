@@ -2,6 +2,9 @@
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
+# Importing registers the packs in the registry (module side-effect).
+import app.services.industry_packs.ecommerce_pack  # noqa: F401
+import app.services.industry_packs.saas_pack  # noqa: F401
 from app.api.deps import CurrentWorkspace, DbSession
 from app.core.exceptions import StructuredOutputError
 from app.schemas.blueprint import (
@@ -17,10 +20,6 @@ from app.services import blueprint_service
 from app.services.blueprint_service import ValidationReport
 from app.services.industry_packs.blueprint_template import build_blueprint_from_pack
 from app.services.industry_packs.pack_registry import get_pack
-
-# Importing registers the packs in the registry (module side-effect).
-import app.services.industry_packs.ecommerce_pack  # noqa: F401
-import app.services.industry_packs.saas_pack  # noqa: F401
 
 router = APIRouter(prefix="/blueprints", tags=["blueprints"])
 

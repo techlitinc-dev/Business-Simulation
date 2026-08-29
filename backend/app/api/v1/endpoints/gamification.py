@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, HTTPException, Response
 from sqlalchemy import func, select
 
@@ -25,6 +27,48 @@ def _achievement_out(a: Achievement) -> dict[str, str]:
     }
 
 
+async def _cohort_percentile(db: DbSession, workspace_id: uuid.UUID) -> int:
+    """Percentile of this workspace's best completed MC score vs the cohort.
+
+    Computed as the share of completed public Monte Carlo runs with a
+    resilience score at or below this workspace's best. 100 when the cohort
+    is empty (no peers yet) — a first run is always "best so far".
+    """
+    best_score = await db.scalar(
+        select(func.max(SimulationRun.result["resilience_score"].as_integer())).where(
+            SimulationRun.workspace_id == workspace_id,
+            SimulationRun.status == "completed",
+        )
+    )
+    if best_score is None:
+        return 0
+    cohort_total = int(
+        await db.scalar(
+            select(func.count(SimulationRun.id)).where(
+                SimulationRun.mode == "monte_carlo",
+                SimulationRun.status == "completed",
+                SimulationRun.is_public.is_(True),
+            )
+        )
+        or 0
+    )
+    if cohort_total == 0:
+        return 100
+    at_or_below = int(
+        await db.scalar(
+            select(func.count(SimulationRun.id)).where(
+                SimulationRun.mode == "monte_carlo",
+                SimulationRun.status == "completed",
+                SimulationRun.is_public.is_(True),
+                SimulationRun.result["resilience_score"].as_integer()
+                <= best_score,
+            )
+        )
+        or 0
+    )
+    return round(at_or_below / cohort_total * 100)
+
+
 @router.get("/achievements")
 async def get_achievements(
     db: DbSession, user: CurrentUser, workspace: CurrentWorkspace
@@ -40,13 +84,15 @@ async def get_achievements(
     )
     summary = await get_workspace_journal_summary(str(workspace.id), db)
 
-    # Cohort percentile: not computed yet — default to a neutral 50 so the
-    # top_decile badge is only awarded once leaderboard percentiles exist.
+    # Cohort percentile: the share of completed public MC runs this workspace
+    # outscores. 100 when there are no peers yet (first run is "best so far").
+    cohort_percentile = await _cohort_percentile(db, workspace.id)
+
     context = {
         "total_runs": total_runs,
         "beat_ai_count": summary.beat_ai_count,
         "demand_shocks_survived": 0,
-        "cohort_percentile": 50,
+        "cohort_percentile": cohort_percentile,
     }
     return [_achievement_out(a) for a in check_achievements(context)]
 

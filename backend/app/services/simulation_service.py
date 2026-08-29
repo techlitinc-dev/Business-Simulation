@@ -375,9 +375,14 @@ def _next_hurdle_month(config: dict[str, Any], current_month: int) -> int | None
     return None
 
 
-def _industry_pack_for_version(version: BlueprintVersion) -> Any | None:
+async def _industry_pack_for_version(
+    db: AsyncSession, version: BlueprintVersion
+) -> Any | None:
     """Resolve an industry pack by the blueprint's industry, if any."""
-    industry = getattr(getattr(version, "blueprint", None), "industry", None)
+    from app.models.blueprint import Blueprint
+
+    blueprint = await db.get(Blueprint, version.blueprint_id)
+    industry = getattr(blueprint, "industry", None)
     if not industry:
         return None
     from app.services.industry_packs.pack_registry import get_pack
@@ -410,7 +415,7 @@ async def start_stress_run(
     config = req.config.model_dump(mode="json")
     config["hurdle_months"] = hurdle_months
 
-    pack = _industry_pack_for_version(version)
+    pack = await _industry_pack_for_version(db, version)
     if pack is not None:
         config["industry_pack_id"] = pack.id
         config["hurdle_library"] = pack.hurdle_library
@@ -517,6 +522,7 @@ async def run_stress_segment(
         # no LLM. Reuses the pure Strategist.project_option for forward math.
         from app.services.industry_packs import simulation as pack_sim
 
+        assert library is not None
         entries = list(library)
         cursor = int(run.config.get("hurdle_cursor", 0))
         entry = entries[cursor % len(entries)]

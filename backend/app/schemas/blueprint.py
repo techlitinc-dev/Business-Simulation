@@ -139,7 +139,7 @@ class BlueprintCreate(BaseModel):
         return stripped
 
     @model_validator(mode="after")
-    def require_payload_source(self) -> "BlueprintCreate":
+    def require_payload_source(self) -> BlueprintCreate:
         has_payload = self.payload is not None
         has_pack = self.industry_pack_id is not None
         if has_payload == has_pack:

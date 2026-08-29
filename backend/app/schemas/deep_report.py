@@ -15,6 +15,8 @@ class ReportJobStatus(StrEnum):
 class DeepReportRequest(BaseModel):
     run_id: str
     report_type: str = "resilience_audit"
+    #: Report language code ("es", "fr", ...); empty/"en" = English.
+    lang: str = "en"
     # tier is derived from workspace plan — not user-supplied
 
 

@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,11 +41,32 @@ class Settings(BaseSettings):
     # Per-1k-token pricing; 0.0 means cost tracking is disabled (cost_usd -> 0.0)
     llm_cost_per_1k_input_tokens: float = 0.0
     llm_cost_per_1k_output_tokens: float = 0.0
-    # Per-task model overrides — empty falls back to llm_model (model router)
-    model_executive_summary: str = ""
-    model_counterfactual: str = ""
-    model_narrative: str = ""
-    model_default: str = ""
+    # Per-task model overrides — empty falls back to llm_model (model router).
+    # Both MODEL_* and DEEPSEEK_MODEL_* env names are accepted (Day 32 spec).
+    model_executive_summary: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "model_executive_summary", "MODEL_EXECUTIVE_SUMMARY", "DEEPSEEK_MODEL_EXECUTIVE_SUMMARY"
+        ),
+    )
+    model_counterfactual: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "model_counterfactual", "MODEL_COUNTERFACTUAL", "DEEPSEEK_MODEL_COUNTERFACTUAL"
+        ),
+    )
+    model_narrative: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "model_narrative", "MODEL_NARRATIVE", "DEEPSEEK_MODEL_NARRATIVE"
+        ),
+    )
+    model_default: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "model_default", "MODEL_DEFAULT", "DEEPSEEK_MODEL_DEFAULT"
+        ),
+    )
 
     # Stripe billing
     stripe_secret_key: str | None = None

@@ -73,6 +73,7 @@ async def request_deep_report(
             run_id=body.run_id,
             report_type=body.report_type,
             tier=tier,
+            lang=body.lang,
         )
     except Exception:  # noqa: BLE001 - Redis broker down in dev/tests
         logger.warning("deep report: enqueue failed", exc_info=True)
@@ -88,6 +89,7 @@ async def request_deep_report(
                         "job_id": job_id,
                         "run_id": body.run_id,
                         "tier": tier,
+                        "lang": body.lang,
                         "section": 0,
                         "total": len(sections),
                         "status": "error",

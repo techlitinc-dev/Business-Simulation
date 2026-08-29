@@ -93,13 +93,13 @@ def _run_coro(coro: Any) -> Any:
 
 @_task("forge.generate_deep_report")
 def generate_deep_report(
-    job_id: str, run_id: str, report_type: str, tier: str
+    job_id: str, run_id: str, report_type: str, tier: str, lang: str = "en"
 ) -> dict[str, Any]:
     """
     Walk the manifest for the given report_type and tier.
     For each section:
       1. Build the deterministic data pack
-      2. Call the section writer (DeepSeek via bridge)
+      2. Call the section writer (DeepSeek via bridge) with the report language
       3. Run the section linter; retry once, then fall back to data-only
       4. [Day 05] Assemble into PDF
     """
@@ -157,7 +157,9 @@ def generate_deep_report(
                     section_output = render_data_only_fallback(section, data_pack)
                 else:
                     try:
-                        section_output = await generate_section(section, data_pack)
+                        section_output = await generate_section(
+                            section, data_pack, lang_code=lang
+                        )
                         await _publish_progress(
                             redis, job_id, run_id, tier, idx, total, "linting", section.title
                         )
@@ -169,7 +171,9 @@ def generate_deep_report(
                                 section=idx,
                                 errors=lint.errors,
                             )
-                            section_output = await generate_section(section, data_pack)
+                            section_output = await generate_section(
+                                section, data_pack, lang_code=lang
+                            )
                             lint2 = lint_section(section, section_output, data_pack)
                             if not lint2.passed:
                                 logger.error(

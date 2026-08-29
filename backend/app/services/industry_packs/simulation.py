@@ -78,7 +78,7 @@ def build_pack_hurdle_event(entry: dict[str, Any], *, month: int) -> HurdleEvent
     return HurdleEvent(
         event_id=f"pack-{hurdle_type}-m{month}",
         trigger_timing=f"month_{month}",
-        category=_category_for(hurdle_type),  # type: ignore[arg-type]
+        category=_category_for(hurdle_type),
         narrative=HurdleNarrative(
             title=title,
             story=description,

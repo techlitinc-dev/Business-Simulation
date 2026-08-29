@@ -37,14 +37,14 @@ def _first(mapping: Mapping[str, object], *keys: str) -> Mapping[str, object]:
 
 def _as_float(mapping: Mapping[str, object], key: str) -> float:
     try:
-        return float(mapping.get(key) or 0.0)
+        return float(str(mapping.get(key) or 0.0))
     except (TypeError, ValueError):
         return 0.0
 
 
 def _as_int(mapping: Mapping[str, object], key: str) -> int:
     try:
-        return int(mapping.get(key) or 0)
+        return int(str(mapping.get(key) or 0))
     except (TypeError, ValueError):
         return 0
 

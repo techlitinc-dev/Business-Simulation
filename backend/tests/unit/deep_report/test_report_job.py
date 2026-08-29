@@ -13,8 +13,8 @@ from typing import Any
 from app.workers.report_job import generate_deep_report
 
 
-def _run(job_id: str, run_id: str, tier: str) -> dict[str, Any]:
-    return generate_deep_report(job_id, run_id, "resilience_audit", tier)  # type: ignore[no-any-return]
+def _run(job_id: str, run_id: str, tier: str, lang: str = "en") -> dict[str, Any]:
+    return generate_deep_report(job_id, run_id, "resilience_audit", tier, lang)  # type: ignore[no-any-return]
 
 
 def test_free_tier_job_completes_with_fallback() -> None:
