@@ -87,7 +87,11 @@ async def test_same_seed_identical_stress_runs() -> None:
             )
         ).first()
         assert run_a.config["hurdle_months"] == run_b.config["hurdle_months"]
-        assert evt_a.payload == evt_b.payload
+        # Same seed ⇒ identical event payloads; event_id is a per-event UUID so
+        # it legitimately differs between the two runs.
+        payload_a = {k: v for k, v in evt_a.payload.items() if k != "event_id"}
+        payload_b = {k: v for k, v in evt_b.payload.items() if k != "event_id"}
+        assert payload_a == payload_b
 
 
 async def test_apply_decision_advances_and_resolves() -> None:

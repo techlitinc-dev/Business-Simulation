@@ -53,7 +53,8 @@ filterwarnings = [
     # Third-party libs still trip deprecated stdlib APIs on Python 3.12
     "ignore:.*'crypt' is deprecated.*:DeprecationWarning",
     "ignore:Accessing argon2.__version__ is deprecated.*:DeprecationWarning",
-    # matplotlib 3.9 pulls pyparsing 3.x which deprecates oneOf/parseString
-    # (pyparsing >= 3.1 removed the pyparsing.warnings module, so match by message)
-    "ignore:.*(oneOf|parseString).*:DeprecationWarning",
+    # matplotlib 3.9 pulls pyparsing 3.x which deprecates oneOf/parseString,
+    # resetCache, enablePackrat, etc. (pyparsing >= 3.1 removed the
+    # pyparsing.warnings module, so match by class name)
+    "ignore::pyparsing.warnings.PyparsingDeprecationWarning",
 ]

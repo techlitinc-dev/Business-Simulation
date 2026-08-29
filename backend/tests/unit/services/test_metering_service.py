@@ -60,14 +60,14 @@ async def test_check_limit_unlimited_tier_passes(db: AsyncSession) -> None:
 
 
 async def test_check_limit_raises_when_exceeded(db: AsyncSession) -> None:
-    ws = await _workspace(db, tier="free")  # free: 3 runs/mo
-    await metering_service.increment(db, ws.id, "runs", amount=3)
+    ws = await _workspace(db, tier="pro")  # pro: 50 runs/mo
+    await metering_service.increment(db, ws.id, "runs", amount=50)
     with pytest.raises(PlanLimitExceeded) as exc:
         await metering_service.check_limit(db, ws.id, "runs", amount=1)
     assert exc.value.metric == "runs"
-    assert exc.value.limit == 3
-    assert exc.value.used == 3
-    assert exc.value.tier == "free"
+    assert exc.value.limit == 50
+    assert exc.value.used == 50
+    assert exc.value.tier == "pro"
 
 
 async def test_check_limit_allows_under_limit(db: AsyncSession) -> None:
